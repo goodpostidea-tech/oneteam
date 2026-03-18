@@ -1,0 +1,27 @@
+node_modules/
+dist/
+dist-electron/
+*.db
+*.db-journal
+
+# secrets
+.env
+backend/llm-config.json
+backend/tool-config.json
+backend/rss-config.json
+
+# browser session data
+backend/.playwright-wechat/
+
+# IDE / editor
+.claude/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# logs
+*.log

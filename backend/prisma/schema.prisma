@@ -1,0 +1,205 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model OpsMissionProposal {
+  id            Int      @id @default(autoincrement())
+  agentId       String
+  title         String
+  description   String?
+  status        String   @default("pending") // pending | accepted | rejected
+  rejectReason  String?
+  source        String   // api | trigger | reaction | initiative | material
+  materialId    Int?     // 关联的素材 ID
+  proposedSteps Json
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  mission       OpsMission?
+}
+
+model OpsMission {
+  id          Int      @id @default(autoincrement())
+  proposalId  Int?     @unique
+  title       String
+  status      String   @default("approved") // approved | running | succeeded | failed
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  proposal    OpsMissionProposal? @relation(fields: [proposalId], references: [id])
+  steps       OpsMissionStep[]
+}
+
+model OpsMissionStep {
+  id          Int      @id @default(autoincrement())
+  missionId   Int
+  kind        String   // draft_tweet | crawl | analyze | ...
+  status      String   @default("queued") // queued | running | succeeded | failed
+  payload     Json?
+  result      Json?
+  error       String?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  mission     OpsMission @relation(fields: [missionId], references: [id])
+}
+
+model OpsAgentEvent {
+  id          Int      @id @default(autoincrement())
+  agentId     String?
+  kind        String
+  title       String
+  summary     String?
+  tags        Json     // 存字符串数组，例如 ["mission", "auto_approved"]
+  payload     Json?
+  createdAt   DateTime @default(now())
+}
+
+model OpsPolicy {
+  key   String @id
+  value Json
+}
+
+model OpsTriggerRule {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  kind        String   // reactive | proactive
+  eventFilter Json
+  enabled     Boolean  @default(true)
+  cooldownSec Int      @default(300)
+  lastFiredAt DateTime?
+}
+
+// 对话会话
+model OpsRoundtableSession {
+  id          Int      @id @default(autoincrement())
+  title       String
+  format      String   // standup | debate | chat
+  participants String  // 逗号分隔的 agentId 列表
+  transcript  String?
+  status      String   @default("running") // running | finished
+  totalRounds Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+// 对话队列
+model OpsRoundtableQueue {
+  id          Int      @id @default(autoincrement())
+  sessionTitle String
+  format       String
+  participants String  // 预定参与者
+  status       String  @default("queued") // queued | running | finished | failed
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// 记忆系统
+model OpsAgentMemory {
+  id          Int      @id @default(autoincrement())
+  agentId     String
+  kind        String   // insight | pattern | strategy | preference | lesson
+  content     String
+  tags        Json
+  confidence  Float
+  createdAt   DateTime @default(now())
+}
+
+// 关系系统
+model OpsAgentRelationship {
+  id       Int    @id @default(autoincrement())
+  agentA   String
+  agentB   String
+  score    Float
+
+  @@unique([agentA, agentB])
+}
+
+// 主动提案队列
+model OpsInitiativeQueue {
+  id          Int      @id @default(autoincrement())
+  agentId     String
+  status      String   @default("queued") // queued | running | done | failed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 反应队列
+model OpsAgentReaction {
+  id          Int      @id @default(autoincrement())
+  sourceAgent String?
+  targetAgent String
+  eventId     Int?
+  status      String   @default("queued") // queued | running | done | failed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 智能体人设配置
+model OpsAgentConfig {
+  agentId           String   @id
+  name              String?
+  role              String?
+  style             String?
+  catchphrase       String?
+  perspective       String?
+  customSystemPrompt String?
+  modelId           String?
+  updatedAt         DateTime @updatedAt
+}
+
+// 内容草稿与效果
+model OpsTweetDraft {
+  id          Int       @id @default(autoincrement())
+  stepId      Int?
+  missionId   Int?
+  platform    String    @default("tweet") // tweet | weibo | xiaohongshu | douyin | zhihu | toutiao | wechat_mp
+  content     String
+  status      String    @default("draft") // draft | approved | exported | archived
+  exportedAt  DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model OpsArticleDraft {
+  id          Int       @id @default(autoincrement())
+  stepId      Int?
+  missionId   Int?
+  platform    String?   // zhihu | toutiao | wechat_mp | null(通用文章)
+  title       String
+  content     String
+  status      String    @default("draft") // draft | approved | exported | archived
+  exportedAt  DateTime?
+  createdAt   DateTime  @default(now())
+}
+
+model OpsMaterial {
+  id        Int      @id @default(autoincrement())
+  kind      String   @default("url")  // url | note
+  url       String?
+  title     String?
+  summary       String?                      // LLM 生成
+  summaryStatus String   @default("pending") // pending | done | failed
+  content       String   @default("")        // 抓取的原文或手写内容
+  tags      Json     @default("[]")   // string[]
+  source    String   @default("manual") // "manual" | RSS feed name
+  status    String   @default("new")  // new | used | archived
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OpsContentMetric {
+  id          Int      @id @default(autoincrement())
+  kind        String   // tweet | article
+  refId       Int      // 对应推文或文章的 id
+  metricName  String   // impressions | likes | clicks ...
+  metricValue Float
+  collectedAt DateTime @default(now())
+}
+

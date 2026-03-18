@@ -1,0 +1,38 @@
+[
+  {
+    "id": "tavily",
+    "kind": "web_search",
+    "name": "Tavily Search",
+    "apiKey": "",
+    "baseUrl": "https://api.tavily.com",
+    "enabled": true,
+    "priority": 1
+  },
+  {
+    "id": "bing",
+    "kind": "web_search",
+    "name": "Bing Search",
+    "apiKey": "",
+    "baseUrl": "https://api.bing.microsoft.com/v7.0/search",
+    "enabled": true,
+    "priority": 2
+  },
+  {
+    "id": "jina",
+    "kind": "url_fetch",
+    "name": "Jina Reader",
+    "apiKey": "",
+    "baseUrl": "https://r.jina.ai",
+    "enabled": true,
+    "priority": 1
+  },
+  {
+    "id": "readability",
+    "kind": "url_fetch",
+    "name": "内置 Readability",
+    "apiKey": "",
+    "baseUrl": "",
+    "enabled": true,
+    "priority": 2
+  }
+]

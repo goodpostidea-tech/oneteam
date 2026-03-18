@@ -1,0 +1,9 @@
+[
+  {
+    "id": "rss_example",
+    "name": "Example RSS Feed",
+    "url": "https://example.com/feed",
+    "enabled": true,
+    "lastFetchedAt": null
+  }
+]
