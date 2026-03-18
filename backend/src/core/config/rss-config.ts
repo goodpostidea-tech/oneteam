@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getLogger } from '../util/logger';
+import { CONFIG_DIR } from './paths';
 
 const logger = getLogger('rss-config');
 
@@ -12,7 +13,7 @@ export interface RssFeedConfig {
   lastFetchedAt: string | null;
 }
 
-const CONFIG_PATH = path.join(process.cwd(), 'rss-config.json');
+const CONFIG_PATH = path.join(CONFIG_DIR, 'rss-config.json');
 
 let cached: RssFeedConfig[] | null = null;
 

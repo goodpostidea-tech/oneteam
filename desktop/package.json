@@ -8,7 +8,60 @@
     "dev:renderer": "vite",
     "dev:electron": "electron .",
     "build": "vite build && tsc -p tsconfig.electron.json",
+    "build:backend": "cd ../backend && node esbuild.config.mjs",
+    "build:seed": "cd ../backend && node scripts/build-seed-db.mjs",
+    "build:all": "node scripts/build-all.mjs",
+    "dist:win": "node scripts/dist-win.mjs",
+    "dist:mac": "node scripts/dist-mac.mjs",
     "start": "electron ."
+  },
+  "build": {
+    "appId": "com.oneteam.desktop",
+    "productName": "OneTeam",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron-main.js",
+      "public/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/bundle",
+        "to": "backend",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../backend/node_modules/@prisma/client",
+        "to": "backend/node_modules/@prisma/client",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../backend/node_modules/.prisma/client",
+        "to": "backend/node_modules/.prisma/client",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/desktop_logo.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/desktop_logo.png",
+      "category": "public.app-category.productivity"
+    }
   },
   "dependencies": {
     "@milkdown/kit": "^7.19.0",
@@ -32,6 +85,7 @@
     "autoprefixer": "^10.4.27",
     "concurrently": "^9.1.0",
     "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
     "postcss": "^8.5.8",
     "tailwindcss": "^3.4.19",
     "typescript": "^5.6.0",

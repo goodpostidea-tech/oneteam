@@ -22,7 +22,12 @@ function randomDelay(min = 500, max = 1500): Promise<void> {
 let persistentContext: any = null;
 
 async function getOrCreateContext() {
-  const { chromium } = await import('playwright');
+  let chromium: any;
+  try {
+    chromium = (await import('playwright')).chromium;
+  } catch {
+    throw new Error('Playwright 未安装，浏览器发布功能不可用');
+  }
   const userDataDir = path.join(process.cwd(), '.playwright-wechat');
 
   if (persistentContext) {
@@ -37,7 +42,7 @@ async function getOrCreateContext() {
     }
   }
 
-  persistentContext = await chromium.launchPersistentContext(userDataDir, {
+  persistentContext = await (chromium as any).launchPersistentContext(userDataDir, {
     headless: false,
     viewport: { width: 1280, height: 900 },
     locale: 'zh-CN',

@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { initPaths } from './core/config/paths';
 import cron from 'node-cron';
 import { runHeartbeatCycle } from './core/ops/heartbeat';
 import { getDb } from './core/db/client';
@@ -13,6 +14,8 @@ import { ensureDefaultTriggers } from './core/ops/triggers';
 const logger = getLogger('main');
 
 async function main() {
+  initPaths();
+
   await getDb().$connect();
   logger.info('Database connected');
 

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getLogger } from '../util/logger';
+import { CONFIG_DIR } from './paths';
 
 const logger = getLogger('llm-config');
 
@@ -15,7 +16,7 @@ export interface LlmModelConfig {
   type?: 'text' | 'image';  // 默认 'text'
 }
 
-const CONFIG_PATH = path.join(process.cwd(), 'llm-config.json');
+const CONFIG_PATH = path.join(CONFIG_DIR, 'llm-config.json');
 
 let cached: LlmModelConfig[] | null = null;
 

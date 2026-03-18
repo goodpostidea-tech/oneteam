@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { getLogger } from '../util/logger';
+import { CONFIG_DIR } from './paths';
 
 const logger = getLogger('tool-config');
 
@@ -14,7 +15,7 @@ export interface ToolProviderConfig {
   priority: number;    // 同 kind 内优先级，数字小优先
 }
 
-const CONFIG_PATH = path.join(process.cwd(), 'tool-config.json');
+const CONFIG_PATH = path.join(CONFIG_DIR, 'tool-config.json');
 
 const DEFAULT_CONFIGS: ToolProviderConfig[] = [
   { id: 'tavily', kind: 'web_search', name: 'Tavily Search', apiKey: '', baseUrl: 'https://api.tavily.com', enabled: true, priority: 1 },
