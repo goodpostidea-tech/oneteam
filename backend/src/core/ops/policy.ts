@@ -22,7 +22,8 @@ export async function setPolicy<T>(key: string, value: T): Promise<void> {
 // ─── 默认策略种子 ───
 
 const DEFAULT_POLICIES: Record<string, unknown> = {
-  auto_approve: { enabled: true },
+  auto_approve: { enabled: false },
+  heartbeat_interval: { minutes: 30 },
   daily_quota: { limit: 20 },
   cap_gates: {
     draft_social: 8,

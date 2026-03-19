@@ -1,7 +1,8 @@
-const { app, BrowserWindow, Menu, shell, utilityProcess } = require('electron');
+const { app, BrowserWindow, Menu, shell, utilityProcess, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const { autoUpdater } = require('electron-updater');
 
 // Dev when not packaged (app.isPackaged is false during electron .)
 const isDev = !app.isPackaged;
@@ -118,6 +119,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
     },
   });
 
@@ -148,6 +150,73 @@ function createWindow() {
   } else {
     win.loadFile(path.join(__dirname, 'dist', 'index.html'));
   }
+
+  return win;
+}
+
+// ── Auto-updater ──────────────────────────────────────────────────
+
+// Fallback update server when GitHub is unreachable.
+// Set via env var or defaults to empty (GitHub-only).
+// To use: host latest.yml + installer files on any static server,
+// then set ONETEAM_UPDATE_URL=https://your-server.com/updates
+const FALLBACK_UPDATE_URL = process.env.ONETEAM_UPDATE_URL || '';
+
+let mainWindow = null;
+
+async function checkForUpdatesWithFallback() {
+  // Try GitHub first (default provider from package.json)
+  try {
+    autoUpdater.setFeedURL({
+      provider: 'github',
+      owner: 'goodpostidea-tech',
+      repo: 'oneteam',
+    });
+    const result = await autoUpdater.checkForUpdates();
+    return result;
+  } catch (err) {
+    console.log('GitHub update check failed, trying fallback...', err.message);
+  }
+
+  // Fallback to generic server
+  if (FALLBACK_UPDATE_URL) {
+    try {
+      autoUpdater.setFeedURL({
+        provider: 'generic',
+        url: FALLBACK_UPDATE_URL,
+      });
+      const result = await autoUpdater.checkForUpdates();
+      return result;
+    } catch (err) {
+      console.error('Fallback update check also failed:', err.message);
+    }
+  }
+
+  return null;
+}
+
+function setupAutoUpdater() {
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-available', (info) => {
+    mainWindow?.webContents.send('update-available', { version: info.version, releaseNotes: info.releaseNotes });
+  });
+  autoUpdater.on('download-progress', (progress) => {
+    mainWindow?.webContents.send('update-progress', { percent: progress.percent });
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    mainWindow?.webContents.send('update-downloaded', { version: info.version });
+  });
+  autoUpdater.on('error', (err) => {
+    console.error('Auto-updater error:', err.message);
+  });
+
+  ipcMain.on('install-update', () => {
+    autoUpdater.quitAndInstall(false, true);
+  });
+  ipcMain.handle('get-app-version', () => app.getVersion());
+  ipcMain.handle('check-for-update', () => checkForUpdatesWithFallback());
 }
 
 // ── App lifecycle ──────────────────────────────────────────────────
@@ -161,7 +230,9 @@ app.whenReady().then(async () => {
     console.error('Failed to start backend:', e.message);
   }
 
-  createWindow();
+  mainWindow = createWindow();
+  setupAutoUpdater();
+  checkForUpdatesWithFallback().catch(() => {});
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

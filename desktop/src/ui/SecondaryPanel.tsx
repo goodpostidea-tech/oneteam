@@ -22,7 +22,7 @@ import type {
 import {
   Plus, Brain, FileText, Users, Cpu, Shield, Zap, ChevronRight,
   Wrench, Send, Twitter, BookOpen, Lightbulb, Link2, StickyNote,
-  Rss, Loader2, Search,
+  Rss, Loader2, Search, Info,
 } from 'lucide-react';
 
 interface Props {
@@ -536,6 +536,7 @@ export const SecondaryPanel: React.FC<Props> = React.memo((p) => {
               { key: 'policy' as SettingsTab,        icon: Shield,  label: '策略管理' },
               { key: 'triggers' as SettingsTab,      icon: Zap,     label: '触发规则' },
               { key: 'rss-config' as SettingsTab,    icon: Rss,     label: 'RSS 订阅源' },
+              { key: 'about' as SettingsTab,          icon: Info,    label: '关于' },
             ]).map(item => {
               const isActive = p.settingsTab === item.key;
               return (

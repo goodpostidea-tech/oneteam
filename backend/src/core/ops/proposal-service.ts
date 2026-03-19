@@ -117,7 +117,7 @@ export async function createProposal(
   });
 
   // ─── 4. 审批决策：confidence ≥ 0.8 且策略允许 → 自动通过 ───
-  const autoApprovePolicy = await getPolicy('auto_approve', { enabled: true });
+  const autoApprovePolicy = await getPolicy('auto_approve', { enabled: false });
   const autoApprove =
     autoApprovePolicy.enabled && input.planResult.confidence >= 0.8;
 

@@ -10,6 +10,7 @@ import { SettingsTriggersTab } from './SettingsTriggersTab';
 import { SettingsAgentsTab } from './SettingsAgentsTab';
 import { SettingsToolsTab } from './SettingsToolsTab';
 import { SettingsRssTab } from './SettingsRssTab';
+import { SettingsAboutTab } from './SettingsAboutTab';
 import { api } from '../api';
 import type { NavKey, Agent, Mission, Step, Relationship, RoundtableSession, Proposal, Memory, LlmModelConfig, SettingsTab, HeartbeatStatus, OutboxItem, PublisherInfo, MaterialItem, EventItem, StageAgent } from '../types';
 import {
@@ -879,7 +880,7 @@ const PipelineView: React.FC<{
                     </span>
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-semibold text-t1">
-                        {s.agentName ? `${s.agentName} · ${STEP_KIND_LABELS[s.kind]?.label || s.kind}` : (STEP_KIND_LABELS[s.kind]?.label || s.kind)}
+                        {s.agent ? `${agentDisplayName(s.agent)} · ${STEP_KIND_LABELS[s.kind]?.label || s.kind}` : (STEP_KIND_LABELS[s.kind]?.label || s.kind)}
                       </span>
                       {s.reason && (
                         <p className="text-xs text-t3 mt-1 leading-relaxed">{s.reason}</p>
@@ -2034,12 +2035,12 @@ const OutboxDetailView: React.FC<{
   }, [item?.content, activeTab]);
 
   const handlePublishWithStatus = async (kind: string, id: number, publisherId: string) => {
-    const isBrowser = publisherId === 'browser-wechat-mp';
+    const isBrowser = publisherId === 'browser-wechat-mp' || publisherId === 'browser-toutiao';
     let es: EventSource | null = null;
     if (isBrowser) {
       setBrowserStatus({ state: 'launching', message: '正在启动浏览器...' });
       try {
-        es = new EventSource('http://localhost:3456/api/publishers/browser-wechat-mp/status');
+        es = new EventSource(`http://localhost:3456/api/publishers/${publisherId}/status`);
         es.onmessage = (e) => {
           try {
             const data = JSON.parse(e.data);
@@ -2621,6 +2622,7 @@ export const MainView: React.FC<Props> = React.memo((p) => {
         {p.nav === 'settings' && p.settingsTab === 'policy' && <SettingsPolicyTab />}
         {p.nav === 'settings' && p.settingsTab === 'triggers' && <SettingsTriggersTab />}
         {p.nav === 'settings' && p.settingsTab === 'rss-config' && <SettingsRssTab />}
+        {p.nav === 'settings' && p.settingsTab === 'about' && <SettingsAboutTab />}
         {p.nav === 'settings' && !p.settingsTab && (
           <Empty icon={<Cpu size={32} strokeWidth={1.5} />} text="请从左侧选择设置项" />
         )}

@@ -3,6 +3,7 @@ import type { ToolProviderConfig } from '../../config/tool-config';
 import { publishWebhook } from './webhook';
 import { publishWechatMp } from './wechat-mp';
 import { publishBrowserWechatMp } from './browser-wechat-mp';
+import { publishBrowserToutiao } from './browser-toutiao';
 
 const logger = getLogger('publisher');
 
@@ -27,6 +28,8 @@ export async function publish(
       return publishWechatMp(item, config, theme, styledHtml);
     case 'browser-wechat-mp':
       return publishBrowserWechatMp(item, config, theme, styledHtml);
+    case 'browser-toutiao':
+      return publishBrowserToutiao(item, config);
     default:
       // For custom publisher configs, try webhook as default behavior
       if (config.baseUrl?.startsWith('http')) {

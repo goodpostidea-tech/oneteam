@@ -6,6 +6,7 @@ import { CreateProposalModal } from './CreateProposalModal';
 import { CreateRoundtableModal } from './CreateRoundtableModal';
 import { CreateMemoryModal } from './CreateMemoryModal';
 import { ExternalLinkGuard } from './ExternalLinkModal';
+import { UpdateNotifier } from './UpdateNotifier';
 import { makeGlobalCss, type ThemeId } from './styles';
 import { api } from '../api';
 import type {
@@ -462,6 +463,7 @@ export const App: React.FC = () => {
         <CreateMemoryModal agent={agents.find(a => a.id === agentId) || { id: agentId, name: agentId, role: '', style: '' }} onSubmit={handleSubmitMemory} onClose={handleCloseCreateMemory} />
       )}
       <ExternalLinkGuard />
+      <UpdateNotifier />
     </>
   );
 };

@@ -13,6 +13,7 @@ const FIELD_PLACEHOLDERS: Record<string, { apiKey?: string; baseUrl?: string }> 
   'wechat-mp': { apiKey: 'AppSecret', baseUrl: 'AppID' },
   'webhook': { apiKey: 'Authorization Token (可选)', baseUrl: 'Webhook URL (https://...)' },
   'browser-wechat-mp': {},
+  'browser-toutiao': {},
 };
 
 const ToolCard: React.FC<{
@@ -63,6 +64,10 @@ const ToolCard: React.FC<{
       {config.id === 'browser-wechat-mp' ? (
         <p className="text-sm text-t3 leading-relaxed">
           首次发布时会打开浏览器，请扫码登录微信公众号后台。登录状态会自动保持。
+        </p>
+      ) : config.id === 'browser-toutiao' ? (
+        <p className="text-sm text-t3 leading-relaxed">
+          首次发布时会打开浏览器，请扫码登录今日头条创作平台。登录状态会自动保持。
         </p>
       ) : config.id !== 'readability' && (
         <div className="space-y-2">

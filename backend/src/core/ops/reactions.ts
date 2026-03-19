@@ -2,6 +2,7 @@ import { getDb } from '../db/client';
 import { getLogger } from '../util/logger';
 import { createProposal } from './proposal-service';
 import { getPolicy } from './policy';
+import { getAgentName } from '../llm/step-planner';
 
 const logger = getLogger('reactions');
 
@@ -50,7 +51,7 @@ export async function processReactionQueue(): Promise<void> {
           steps: [{
             kind: stepKind,
             agent: reaction.targetAgent,
-            agentName: reaction.targetAgent,
+            agentName: await getAgentName(reaction.targetAgent),
             reason: description,
           }],
           confidence: 0.9,

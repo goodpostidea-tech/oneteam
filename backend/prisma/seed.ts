@@ -16,7 +16,8 @@ async function main() {
   const policyCount = await db.opsPolicy.count();
   if (policyCount === 0) {
     const policies: Record<string, unknown> = {
-      auto_approve: { enabled: true },
+      auto_approve: { enabled: false },
+      heartbeat_interval: { minutes: 30 },
       daily_quota: { limit: 20 },
       cap_gates: {
         draft_social: 8,
@@ -87,11 +88,11 @@ async function main() {
   const triggerCount = await db.opsTriggerRule.count();
   if (triggerCount === 0) {
     const triggers = [
-      { name: '任务成功后自动辩论', kind: 'mission_success_debate', eventFilter: { kind: 'mission_succeeded' }, enabled: true, cooldownSec: 3600 },
-      { name: '素材驱动提案', kind: 'material_proposal', eventFilter: { kind: 'material_ready' }, enabled: true, cooldownSec: 1800 },
-      { name: '每日站会', kind: 'daily_standup', eventFilter: { kind: 'cron_daily' }, enabled: true, cooldownSec: 86400 },
-      { name: '低亲密度自动辩论', kind: 'low_affinity_debate', eventFilter: { kind: 'step_succeeded' }, enabled: true, cooldownSec: 7200 },
-      { name: '周度复盘', kind: 'weekly_review', eventFilter: { kind: 'cron_weekly' }, enabled: true, cooldownSec: 604800 },
+      { name: '任务成功后自动辩论', kind: 'mission_success_debate', eventFilter: { kind: 'mission_succeeded' }, enabled: false, cooldownSec: 3600 },
+      { name: '素材驱动提案', kind: 'material_proposal', eventFilter: { kind: 'material_ready' }, enabled: false, cooldownSec: 1800 },
+      { name: '每日站会', kind: 'daily_standup', eventFilter: { kind: 'cron_daily' }, enabled: false, cooldownSec: 86400 },
+      { name: '低亲密度自动辩论', kind: 'low_affinity_debate', eventFilter: { kind: 'step_succeeded' }, enabled: false, cooldownSec: 7200 },
+      { name: '周度复盘', kind: 'weekly_review', eventFilter: { kind: 'cron_weekly' }, enabled: false, cooldownSec: 604800 },
     ];
     for (const t of triggers) {
       await db.opsTriggerRule.create({

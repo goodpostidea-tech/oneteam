@@ -143,7 +143,7 @@ async function templateToSteps(tpl: RuleTemplate): Promise<PlannedStep[]> {
   })));
 }
 
-async function getAgentName(agentId: string): Promise<string> {
+export async function getAgentName(agentId: string): Promise<string> {
   const { getAgentConfig, AGENTS } = await import('../ops/agents');
   const config = await getAgentConfig(agentId);
   if (config) return config.name;

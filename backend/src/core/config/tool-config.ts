@@ -25,6 +25,7 @@ const DEFAULT_CONFIGS: ToolProviderConfig[] = [
   { id: 'webhook', kind: 'publisher', name: 'Webhook', apiKey: '', baseUrl: '', enabled: false, priority: 1 },
   { id: 'wechat-mp', kind: 'publisher', name: '微信公众号', apiKey: '', baseUrl: '', enabled: false, priority: 2 },
   { id: 'browser-wechat-mp', kind: 'publisher', name: '微信公众号(浏览器)', apiKey: '', baseUrl: '', enabled: false, priority: 3 },
+  { id: 'browser-toutiao', kind: 'publisher', name: '今日头条(浏览器)', apiKey: '', baseUrl: '', enabled: false, priority: 4 },
 ];
 
 let cached: ToolProviderConfig[] | null = null;

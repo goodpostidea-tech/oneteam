@@ -3,7 +3,7 @@ import { llmGenerate } from './provider';
 import { getLogger } from '../util/logger';
 import { applyRelationshipDrifts, type RelationshipDrift } from '../ops/relationships';
 import { createProposal } from '../ops/proposal-service';
-import { STEP_AGENT_MAP } from './step-planner';
+import { STEP_AGENT_MAP, getAgentName } from './step-planner';
 import { AGENTS } from '../ops/agents';
 import { PLATFORMS } from '../ops/platforms';
 import type { RoundtableFormat } from '../ops/roundtable';
@@ -362,7 +362,7 @@ ${actionItemBlock}
             steps: [{
               kind: stepKind,
               agent: STEP_AGENT_MAP[stepKind] || agentId,
-              agentName: STEP_AGENT_MAP[stepKind] || agentId,
+              agentName: await getAgentName(STEP_AGENT_MAP[stepKind] || agentId),
               reason: '圆桌讨论行动项',
             }],
             confidence: 0.85,

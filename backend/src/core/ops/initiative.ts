@@ -5,7 +5,7 @@ import { AGENTS } from './agents';
 import { llmGenerate } from '../llm/provider';
 import { buildAgentSystemPrompt } from '../llm/agent-prompt';
 import { createProposal } from './proposal-service';
-import { STEP_AGENT_MAP } from '../llm/step-planner';
+import { STEP_AGENT_MAP, getAgentName } from '../llm/step-planner';
 
 const logger = getLogger('initiative');
 
@@ -138,7 +138,7 @@ KIND|步骤类型（analyze/write_article/draft_social/crawl）
         steps: [{
           kind: stepKind,
           agent: STEP_AGENT_MAP[stepKind] || agent.id,
-          agentName: STEP_AGENT_MAP[stepKind] || agent.id,
+          agentName: await getAgentName(STEP_AGENT_MAP[stepKind] || agent.id),
           reason: '主动提案',
         }],
         confidence: 0.85,

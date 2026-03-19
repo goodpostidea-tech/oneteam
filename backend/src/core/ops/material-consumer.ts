@@ -3,7 +3,7 @@ import { getLogger } from '../util/logger';
 import { getPolicy } from './policy';
 import { llmGenerate } from '../llm/provider';
 import { createProposal } from './proposal-service';
-import { STEP_AGENT_MAP } from '../llm/step-planner';
+import { STEP_AGENT_MAP, getAgentName } from '../llm/step-planner';
 
 const logger = getLogger('material-consumer');
 
@@ -106,7 +106,7 @@ AGENT|最适合的智能体（sage/scout/quill/xalt）`,
           steps: [{
             kind: stepKind,
             agent: STEP_AGENT_MAP[stepKind] || finalAgent,
-            agentName: STEP_AGENT_MAP[stepKind] || finalAgent,
+            agentName: await getAgentName(STEP_AGENT_MAP[stepKind] || finalAgent),
             reason: `基于素材: ${mat.title || mat.url || ''}`,
           }],
           confidence: 0.85,

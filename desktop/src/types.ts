@@ -209,7 +209,7 @@ export interface LlmModelConfigInput {
   type?: 'text' | 'image';
 }
 
-export type SettingsTab = 'model-config' | 'tools-config' | 'policy' | 'triggers' | 'agents-config' | 'rss-config';
+export type SettingsTab = 'model-config' | 'tools-config' | 'policy' | 'triggers' | 'agents-config' | 'rss-config' | 'about';
 
 export interface RssFeedConfig {
   id: string;

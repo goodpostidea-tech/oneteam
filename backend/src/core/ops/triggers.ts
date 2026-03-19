@@ -1,7 +1,7 @@
 import { getDb } from '../db/client';
 import { getLogger } from '../util/logger';
 import { createProposal } from './proposal-service';
-import { STEP_AGENT_MAP } from '../llm/step-planner';
+import { STEP_AGENT_MAP, getAgentName } from '../llm/step-planner';
 import type { Prisma } from '@prisma/client';
 
 const logger = getLogger('triggers');
@@ -83,35 +83,35 @@ export async function ensureDefaultTriggers(): Promise<void> {
       name: 'proactive_minion_daily_brief',
       kind: 'proactive',
       eventFilter: { type: 'time' },
-      enabled: true,
+      enabled: false,
       cooldownSec: 60 * 60 * 4, // 4 小时
     },
     {
       name: 'proactive_scout_intel_scan',
       kind: 'proactive',
       eventFilter: { type: 'time' },
-      enabled: true,
+      enabled: false,
       cooldownSec: 60 * 60 * 6, // 6 小时
     },
     {
       name: 'proactive_quill_content',
       kind: 'proactive',
       eventFilter: { type: 'time' },
-      enabled: true,
+      enabled: false,
       cooldownSec: 60 * 60 * 8, // 8 小时
     },
     {
       name: 'proactive_sage_analysis',
       kind: 'proactive',
       eventFilter: { type: 'time' },
-      enabled: true,
+      enabled: false,
       cooldownSec: 60 * 60 * 6, // 6 小时
     },
     {
       name: 'proactive_xalt_social',
       kind: 'proactive',
       eventFilter: { type: 'time' },
-      enabled: true,
+      enabled: false,
       cooldownSec: 60 * 60 * 4, // 4 小时
     },
   ];
@@ -165,12 +165,12 @@ export async function evaluateTriggers(): Promise<void> {
         description: handler.description,
         source: 'trigger',
         planResult: {
-          steps: handler.steps.map((s) => ({
+          steps: await Promise.all(handler.steps.map(async (s) => ({
             kind: s.kind,
             agent: STEP_AGENT_MAP[s.kind] || handler.agentId,
-            agentName: STEP_AGENT_MAP[s.kind] || handler.agentId,
+            agentName: await getAgentName(STEP_AGENT_MAP[s.kind] || handler.agentId),
             reason: s.kind,
-          })),
+          }))),
           confidence: 0.9,
           method: 'rule',
         },

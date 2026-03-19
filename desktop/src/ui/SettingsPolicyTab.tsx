@@ -7,6 +7,7 @@ interface PolicyData {
   auto_approve: { enabled: boolean };
   daily_quota: { limit: number };
   cap_gates: Record<string, number>;
+  heartbeat_interval: { minutes: number };
 }
 
 const CAP_LABELS: Record<string, string> = {
@@ -25,9 +26,10 @@ const CAP_UNITS: Record<string, string> = {
 
 export const SettingsPolicyTab: React.FC = () => {
   const [data, setData] = useState<PolicyData>({
-    auto_approve: { enabled: true },
+    auto_approve: { enabled: false },
     daily_quota: { limit: 20 },
     cap_gates: {},
+    heartbeat_interval: { minutes: 30 },
   });
   const [saving, setSaving] = useState<string | null>(null);
 
@@ -37,9 +39,10 @@ export const SettingsPolicyTab: React.FC = () => {
       const map: Record<string, any> = {};
       for (const r of rows) map[r.key] = r.value;
       setData({
-        auto_approve: map.auto_approve || { enabled: true },
+        auto_approve: map.auto_approve || { enabled: false },
         daily_quota: map.daily_quota || { limit: 20 },
         cap_gates: { ...CAP_DEFAULTS, ...(map.cap_gates || {}) },
+        heartbeat_interval: map.heartbeat_interval || { minutes: 30 },
       });
     } catch { /* ignore */ }
   }, []);
@@ -62,6 +65,12 @@ export const SettingsPolicyTab: React.FC = () => {
     const next = { limit };
     setData(d => ({ ...d, daily_quota: next }));
     save('daily_quota', next);
+  };
+
+  const updateHeartbeat = (minutes: number) => {
+    const next = { minutes };
+    setData(d => ({ ...d, heartbeat_interval: next }));
+    save('heartbeat_interval', next);
   };
 
   const updateCapGate = (kind: string, limit: number) => {
@@ -110,6 +119,24 @@ export const SettingsPolicyTab: React.FC = () => {
               className="w-16 px-2.5 py-1.5 rounded-lg bg-bg-hover border-none text-sm font-mono text-t1 text-center outline-none focus:ring-2 focus:ring-[var(--color-primary-muted)]"
             />
             <span className="text-xs text-t4">条/天</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Heartbeat Interval */}
+      <div className="card p-6">
+        <h3 className="text-md font-semibold text-t1 mb-1">心跳频率</h3>
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-t3">智能体主动检查周期（修改后需重启生效）</p>
+          <div className="flex items-center gap-2">
+            <input
+              type="number" min={1} max={60}
+              value={data.heartbeat_interval.minutes}
+              onChange={e => { const v = Number(e.target.value); if (v > 0) setData(d => ({ ...d, heartbeat_interval: { minutes: v } })); }}
+              onBlur={() => updateHeartbeat(data.heartbeat_interval.minutes)}
+              className="w-16 px-2.5 py-1.5 rounded-lg bg-bg-hover border-none text-sm font-mono text-t1 text-center outline-none focus:ring-2 focus:ring-[var(--color-primary-muted)]"
+            />
+            <span className="text-xs text-t4">分钟</span>
           </div>
         </div>
       </div>

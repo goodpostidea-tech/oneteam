@@ -1036,7 +1036,7 @@ export function createHttpServer(port: number) {
   app.get('/api/publishers', (_req: Request, res: Response) => {
     const publishers = getAllToolConfigs()
       .filter(c => c.kind === 'publisher' && c.enabled)
-      .map(c => ({ id: c.id, name: c.name, ready: c.id === 'browser-wechat-mp' || !!c.baseUrl }));
+      .map(c => ({ id: c.id, name: c.name, ready: c.id === 'browser-wechat-mp' || c.id === 'browser-toutiao' || !!c.baseUrl }));
     res.json(publishers);
   });
 
@@ -1123,6 +1123,34 @@ export function createHttpServer(port: number) {
     };
 
     browserWechatEmitter.on('status', onStatus);
+    _req.on('close', cleanup);
+  });
+
+  // ─── Browser Toutiao SSE status ───
+
+  app.get('/api/publishers/browser-toutiao/status', async (_req: Request, res: Response) => {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    });
+
+    const { browserToutiaoEmitter } = await import('../core/ops/publishers/browser-toutiao');
+
+    const onStatus = (data: any) => {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+      if (data.state === 'done' || data.state === 'error') {
+        cleanup();
+        res.end();
+      }
+    };
+
+    const cleanup = () => {
+      browserToutiaoEmitter.off('status', onStatus);
+    };
+
+    browserToutiaoEmitter.on('status', onStatus);
     _req.on('close', cleanup);
   });
 

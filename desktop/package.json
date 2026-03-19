@@ -1,6 +1,6 @@
 {
   "name": "oneteam-desktop",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "main": "electron-main.js",
   "scripts": {
@@ -21,9 +21,15 @@
     "directories": {
       "output": "release"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "goodpostidea-tech",
+      "repo": "oneteam"
+    },
     "files": [
       "dist/**/*",
       "electron-main.js",
+      "preload.js",
       "public/**/*"
     ],
     "extraResources": [
@@ -68,6 +74,7 @@
     "axios": "^1.7.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "electron-updater": "^6.8.3",
     "highlight.js": "^11.11.1",
     "lucide-react": "^0.577.0",
     "markdown-it": "^14.1.1",
