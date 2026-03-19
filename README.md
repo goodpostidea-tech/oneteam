@@ -129,11 +129,58 @@ oneteam/
 
 ## 界面预览
 
-应用采用三栏布局：
+### 工作台
+![工作台](docs/screenshots/dashboard.jpg)
 
-- **左侧导航栏** — 在任务、智能体、圆桌、动态、发件箱、素材箱之间切换
-- **中间面板** — 列表/筛选
-- **主内容区** — 任务详情、智能体卡片、信号动态、圆桌回放等
+### 智能体
+![智能体](docs/screenshots/agents.jpg)
+
+### 圆桌会议
+![圆桌会议](docs/screenshots/meeting.jpg)
+
+### 内容创作
+![内容创作](docs/screenshots/content.jpg)
+
+### 素材箱
+![素材箱](docs/screenshots/material.jpg)
+
+### 设置
+
+<details>
+<summary>模型配置</summary>
+
+![模型配置](docs/screenshots/settings_model.jpg)
+</details>
+
+<details>
+<summary>工具配置</summary>
+
+![工具配置](docs/screenshots/settings_tools.jpg)
+</details>
+
+<details>
+<summary>智能体配置</summary>
+
+![智能体配置](docs/screenshots/settings_agents.jpg)
+</details>
+
+<details>
+<summary>策略配置</summary>
+
+![策略配置](docs/screenshots/settings_strategy.jpg)
+</details>
+
+<details>
+<summary>规则配置</summary>
+
+![规则配置](docs/screenshots/settings_ruels.jpg)
+</details>
+
+<details>
+<summary>RSS 订阅</summary>
+
+![RSS 订阅](docs/screenshots/settings_rss.jpg)
+</details>
 
 ## 致谢
 
