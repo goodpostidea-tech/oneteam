@@ -1,7 +1,6 @@
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell, utilityProcess } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { fork } = require('child_process');
 const http = require('http');
 
 // Dev when not packaged (app.isPackaged is false during electron .)
@@ -33,20 +32,38 @@ function startBackend() {
   }
 
   const serverJs = path.join(process.resourcesPath, 'backend', 'server.js');
-  backendProcess = fork(serverJs, [], {
+  backendProcess = utilityProcess.fork(serverJs, [], {
     env: {
       ...process.env,
       ONETEAM_USER_DATA_DIR: userDataDir,
       OPC_BACKEND_PORT: String(BACKEND_PORT),
       NODE_ENV: 'production',
     },
+    cwd: path.join(process.resourcesPath, 'backend'),
     stdio: 'pipe',
   });
 
-  backendProcess.stdout?.on('data', (d) => console.log('[backend]', d.toString().trim()));
-  backendProcess.stderr?.on('data', (d) => console.error('[backend]', d.toString().trim()));
+  const logFile = path.join(userDataDir, 'backend.log');
+  const logStream = fs.createWriteStream(logFile, { flags: 'w' });
+  logStream.write(`[${new Date().toISOString()}] Starting backend: ${serverJs}\n`);
+  logStream.write(`[${new Date().toISOString()}] CWD: ${path.join(process.resourcesPath, 'backend')}\n`);
+  logStream.write(`[${new Date().toISOString()}] ONETEAM_USER_DATA_DIR: ${userDataDir}\n`);
+
+  backendProcess.stdout?.on('data', (d) => {
+    const msg = d.toString().trim();
+    console.log('[backend]', msg);
+    logStream.write(`[stdout] ${msg}\n`);
+  });
+  backendProcess.stderr?.on('data', (d) => {
+    const msg = d.toString().trim();
+    console.error('[backend]', msg);
+    logStream.write(`[stderr] ${msg}\n`);
+  });
   backendProcess.on('exit', (code) => {
-    console.log(`Backend exited with code ${code}`);
+    const msg = `Backend exited with code ${code}`;
+    console.log(msg);
+    logStream.write(`[${new Date().toISOString()}] ${msg}\n`);
+    logStream.end();
     backendProcess = null;
   });
 }

@@ -2,19 +2,19 @@ import React from 'react';
 import { agentHue } from './styles';
 
 const AVATAR_MAP: Record<string, string> = {
-  minion:   '/avatars/guide-192.webp',
-  scout:    '/avatars/scout-192.webp',
-  sage:     '/avatars/forge-192.webp',
-  quill:    '/avatars/quill-192.webp',
-  xalt:     '/avatars/nexus-192.webp',
-  xalt_tweet:       '/avatars/xalt_tweet.webp',
-  xalt_weibo:       '/avatars/xalt_weibo.webp',
-  xalt_xiaohongshu: '/avatars/xalt_xiaohongshu.png',
-  xalt_douyin:      '/avatars/xalt_douyin.jpg',
-  quill_zhihu:      '/avatars/quill_zhihu.jpg',
-  quill_toutiao:    '/avatars/quill_toutiao.webp',
-  quill_wechat_mp:  '/avatars/quill_wechat_mp.webp',
-  observer: '/avatars/observer-192.png',
+  minion:   './avatars/guide-192.webp',
+  scout:    './avatars/scout-192.webp',
+  sage:     './avatars/forge-192.webp',
+  quill:    './avatars/quill-192.webp',
+  xalt:     './avatars/nexus-192.webp',
+  xalt_tweet:       './avatars/xalt_tweet.webp',
+  xalt_weibo:       './avatars/xalt_weibo.webp',
+  xalt_xiaohongshu: './avatars/xalt_xiaohongshu.png',
+  xalt_douyin:      './avatars/xalt_douyin.jpg',
+  quill_zhihu:      './avatars/quill_zhihu.jpg',
+  quill_toutiao:    './avatars/quill_toutiao.webp',
+  quill_wechat_mp:  './avatars/quill_wechat_mp.webp',
+  observer: './avatars/observer-192.png',
 };
 
 interface Props {

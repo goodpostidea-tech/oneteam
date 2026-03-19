@@ -61,7 +61,7 @@ export const NavRail: React.FC<Props> = React.memo(({
       >
         <div className="absolute inset-0 rounded-lg animate-logo-breathe" />
         <img
-          src="/logo.png"
+          src="./logo.png"
           alt="OneTeam"
           className="relative w-7 h-7 rounded-lg object-contain"
         />

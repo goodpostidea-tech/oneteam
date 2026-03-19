@@ -4,8 +4,8 @@ import { mkdirSync } from 'fs';
 // Ensure bundle dir exists
 mkdirSync('bundle', { recursive: true });
 
-// Run prisma migrate deploy against the seed DB
-execSync('npx prisma migrate deploy', {
+// Use db push to create tables from schema (no migrations needed)
+execSync('npx prisma db push --skip-generate', {
   stdio: 'inherit',
   env: { ...process.env, DATABASE_URL: 'file:../bundle/seed.db' },
 });
