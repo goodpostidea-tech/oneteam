@@ -3,6 +3,11 @@ import path from 'path';
 
 const isDev = process.env.NODE_ENV === 'development';
 
+// 限制渲染进程内存，减少空闲内存占用
+app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256');
+// 禁用不需要的 GPU 特性以减少内存
+app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
+
 function createWindow() {
   // Remove default menu bar (File, Edit, View, etc.)
   Menu.setApplicationMenu(null);
@@ -21,8 +26,14 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      backgroundThrottling: true,  // 后台标签页降低资源消耗
+      spellcheck: false,           // 禁用拼写检查减少内存
     },
+    show: false,                   // 先不显示，等 ready-to-show
   });
+
+  // 窗口准备好后再显示，避免白屏闪烁
+  win.once('ready-to-show', () => win.show());
 
   // 拦截 target="_blank" → 用系统默认浏览器打开
   win.webContents.setWindowOpenHandler(({ url }) => {

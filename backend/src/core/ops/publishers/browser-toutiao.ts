@@ -45,6 +45,7 @@ async function getOrCreateContext() {
     viewport: { width: 1280, height: 900 },
     locale: 'zh-CN',
     args: STEALTH_ARGS,
+    ignoreDefaultArgs: ['--enable-automation'],
   });
 
   persistentContext.addInitScript(STEALTH_INIT_SCRIPT);

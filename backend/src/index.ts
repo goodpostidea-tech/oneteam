@@ -9,6 +9,7 @@ import { processInitiativeQueue } from './core/ops/initiative';
 import { ensureDefaultPolicies, getPolicy } from './core/ops/policy';
 import { ensureDefaultRelationships } from './core/ops/relationships';
 import { ensureDefaultTriggers } from './core/ops/triggers';
+import { isLlmReady } from './core/config/llm-config';
 
 const logger = getLogger('main');
 
@@ -48,6 +49,7 @@ async function main() {
 
   // Worker 循环：每 1 秒尝试处理一个步骤
   setInterval(() => {
+    if (!isLlmReady()) return;
     processOneQueuedStep().catch((error) => {
       logger.error('Worker tick failed', error);
     });
@@ -55,6 +57,7 @@ async function main() {
 
   // Initiative worker：每 30 秒消费主动提案队列
   setInterval(() => {
+    if (!isLlmReady()) return;
     processInitiativeQueue().catch((error) => {
       logger.error('Initiative worker tick failed', error);
     });

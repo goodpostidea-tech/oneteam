@@ -207,6 +207,19 @@ export function createHttpServer(port: number) {
     }
   });
 
+  app.delete('/api/proposals/:id', async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const proposal = await db.opsMissionProposal.findUnique({ where: { id } });
+      if (!proposal) { res.status(404).json({ error: 'Proposal not found' }); return; }
+      await db.opsMissionProposal.delete({ where: { id } });
+      res.json({ ok: true });
+    } catch (error) {
+      logger.error('Failed to delete proposal', error);
+      res.status(500).json({ error: 'Failed to delete proposal' });
+    }
+  });
+
   // ─── Mission actions ───
 
   app.patch('/api/missions/:id/cancel', async (req: Request, res: Response) => {
@@ -1152,6 +1165,115 @@ export function createHttpServer(port: number) {
 
     browserToutiaoEmitter.on('status', onStatus);
     _req.on('close', cleanup);
+  });
+
+  // ─── Single mission delete ───
+
+  app.delete('/api/missions/:id', async (req: Request, res: Response) => {
+    try {
+      const id = Number(req.params.id);
+      const mission = await db.opsMission.findUnique({ where: { id } });
+      if (!mission) { res.status(404).json({ error: 'Mission not found' }); return; }
+      await db.opsMissionStep.deleteMany({ where: { missionId: id } });
+      await db.opsMission.delete({ where: { id } });
+      // Also delete associated proposal if exists
+      if ((mission as any).proposalId) {
+        await db.opsMissionProposal.delete({ where: { id: (mission as any).proposalId } }).catch(() => {});
+      }
+      res.json({ ok: true });
+    } catch (error) {
+      logger.error('Failed to delete mission', error);
+      res.status(500).json({ error: 'Failed to delete mission' });
+    }
+  });
+
+  // ─── Batch delete ───
+
+  app.post('/api/data/missions/batch-delete', async (req: Request, res: Response) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) { res.status(400).json({ error: 'ids[] is required' }); return; }
+      const numIds = ids.map(Number);
+      await db.opsMissionStep.deleteMany({ where: { missionId: { in: numIds } } });
+      const result = await db.opsMission.deleteMany({ where: { id: { in: numIds } } });
+      res.json({ ok: true, deleted: result.count });
+    } catch (error) {
+      logger.error('Failed to batch delete missions', error);
+      res.status(500).json({ error: 'Failed to batch delete missions' });
+    }
+  });
+
+  app.post('/api/data/materials/batch-delete', async (req: Request, res: Response) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids) || ids.length === 0) { res.status(400).json({ error: 'ids[] is required' }); return; }
+      const result = await db.opsMaterial.deleteMany({ where: { id: { in: ids.map(Number) } } });
+      res.json({ ok: true, deleted: result.count });
+    } catch (error) {
+      logger.error('Failed to batch delete materials', error);
+      res.status(500).json({ error: 'Failed to batch delete materials' });
+    }
+  });
+
+  app.post('/api/data/outbox/batch-delete', async (req: Request, res: Response) => {
+    try {
+      const { items } = req.body;
+      if (!Array.isArray(items) || items.length === 0) { res.status(400).json({ error: 'items[] is required' }); return; }
+      let deleted = 0;
+      const tweetIds = items.filter((i: any) => i.kind === 'tweet').map((i: any) => Number(i.id));
+      const articleIds = items.filter((i: any) => i.kind === 'article').map((i: any) => Number(i.id));
+      if (tweetIds.length > 0) {
+        const r = await db.opsTweetDraft.deleteMany({ where: { id: { in: tweetIds } } });
+        deleted += r.count;
+      }
+      if (articleIds.length > 0) {
+        const r = await db.opsArticleDraft.deleteMany({ where: { id: { in: articleIds } } });
+        deleted += r.count;
+      }
+      res.json({ ok: true, deleted });
+    } catch (error) {
+      logger.error('Failed to batch delete outbox', error);
+      res.status(500).json({ error: 'Failed to batch delete outbox' });
+    }
+  });
+
+  // ─── Data cleanup ───
+
+  app.delete('/api/data/missions', async (_req: Request, res: Response) => {
+    try {
+      // Delete in dependency order
+      await db.opsAgentEvent.deleteMany({});
+      await db.opsMissionStep.deleteMany({});
+      const missionsDeleted = await db.opsMission.deleteMany({});
+      await db.opsMissionProposal.deleteMany({});
+      res.json({ ok: true, deleted: missionsDeleted.count });
+    } catch (error) {
+      logger.error('Failed to clear missions', error);
+      res.status(500).json({ error: 'Failed to clear missions' });
+    }
+  });
+
+  app.delete('/api/data/materials', async (_req: Request, res: Response) => {
+    try {
+      const result = await db.opsMaterial.deleteMany({});
+      res.json({ ok: true, deleted: result.count });
+    } catch (error) {
+      logger.error('Failed to clear materials', error);
+      res.status(500).json({ error: 'Failed to clear materials' });
+    }
+  });
+
+  app.delete('/api/data/outbox', async (_req: Request, res: Response) => {
+    try {
+      const [articles, tweets] = await Promise.all([
+        db.opsArticleDraft.deleteMany({}),
+        db.opsTweetDraft.deleteMany({}),
+      ]);
+      res.json({ ok: true, deleted: articles.count + tweets.count });
+    } catch (error) {
+      logger.error('Failed to clear outbox', error);
+      res.status(500).json({ error: 'Failed to clear outbox' });
+    }
   });
 
   // ─── Legacy test endpoints ───

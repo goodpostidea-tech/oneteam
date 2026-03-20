@@ -12,6 +12,7 @@ backend/rss-config.json
 
 # browser session data
 backend/.playwright-wechat/
+backend/.playwright-toutiao/
 
 # IDE / editor
 .claude/

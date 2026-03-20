@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { T } from './styles';
-import { X } from 'lucide-react';
+import { X, AlertTriangle } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface Props {
@@ -25,9 +25,7 @@ export const Modal: React.FC<Props> = ({ title, onClose, children, width = 480, 
       className="fixed left-0 right-0 bottom-0 z-[100] flex items-start justify-center overflow-y-auto"
       style={{
         top: 0,
-        backgroundColor: 'rgba(0,0,0,0.18)',
-        backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)',
+        backgroundColor: 'rgba(0,0,0,0.32)',
         padding: '80px 0 40px',
       }}
     >
@@ -134,3 +132,103 @@ export const SecondaryBtn: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement
     {children}
   </button>
 );
+
+/** Confirm dialog — replaces window.confirm with a styled modal */
+export const ConfirmDialog: React.FC<{
+  open: boolean;
+  title: string;
+  description: React.ReactNode;
+  confirmLabel?: string;
+  danger?: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}> = ({ open, title, description, confirmLabel = '确认', danger = true, onConfirm, onCancel }) => {
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open, onCancel]);
+
+  if (!open) return null;
+
+  return ReactDOM.createPortal(
+    <div
+      onClick={onCancel}
+      className="fixed inset-0 z-[200] flex items-center justify-center"
+      style={{
+        backgroundColor: 'rgba(0,0,0,0.36)',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="flex flex-col rounded-2xl shadow-lg animate-fade-up"
+        style={{ width: 380, backgroundColor: 'var(--color-bg-panel)' }}
+      >
+        <div className="flex flex-col items-center pt-7 pb-2 px-6">
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
+            style={{
+              background: danger ? 'var(--color-danger-bg)' : 'var(--color-warning-bg)',
+            }}
+          >
+            <AlertTriangle
+              size={20}
+              strokeWidth={2}
+              style={{ color: danger ? 'var(--color-danger)' : 'var(--color-warning)' }}
+            />
+          </div>
+          <div className="text-base font-semibold text-t1 text-center">{title}</div>
+          <div className="text-sm text-t3 text-center mt-1.5 leading-relaxed">{description}</div>
+        </div>
+        <div className="flex gap-3 px-6 pt-4 pb-6">
+          <button
+            onClick={onCancel}
+            className={cn(
+              'flex-1 py-2.5 rounded-xl border-none font-medium text-sm text-t1',
+              'bg-bg-hover cursor-pointer transition-colors duration-100 hover:bg-bg-inset',
+            )}
+          >
+            取消
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2.5 rounded-xl border-none font-semibold text-sm text-white cursor-pointer transition-opacity duration-100 hover:opacity-85"
+            style={{ backgroundColor: danger ? 'var(--color-danger)' : 'var(--color-primary)' }}
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
+/** Hook for easy ConfirmDialog usage */
+export function useConfirm() {
+  const [state, setState] = useState<{
+    title: string; description: React.ReactNode; confirmLabel?: string; danger?: boolean;
+    resolve: (v: boolean) => void;
+  } | null>(null);
+
+  const confirm = useCallback((opts: { title: string; description: React.ReactNode; confirmLabel?: string; danger?: boolean }) => {
+    return new Promise<boolean>(resolve => {
+      setState({ ...opts, resolve });
+    });
+  }, []);
+
+  const dialog = state ? (
+    <ConfirmDialog
+      open
+      title={state.title}
+      description={state.description}
+      confirmLabel={state.confirmLabel}
+      danger={state.danger}
+      onConfirm={() => { state.resolve(true); setState(null); }}
+      onCancel={() => { state.resolve(false); setState(null); }}
+    />
+  ) : null;
+
+  return { confirm, dialog };
+}

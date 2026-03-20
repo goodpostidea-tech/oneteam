@@ -5,6 +5,7 @@ import { Router, Request, Response } from 'express';
 import { getDb } from '../core/db/client';
 import { getLogger } from '../core/util/logger';
 import { getHeartbeatStatus } from '../core/ops/heartbeat';
+import { isLlmReady } from '../core/config/llm-config';
 
 const logger = getLogger('routes-system');
 
@@ -15,7 +16,7 @@ export function systemRouter(): Router {
   // ─── Heartbeat status ───
 
   r.get('/api/heartbeat/status', (_req: Request, res: Response) => {
-    res.json(getHeartbeatStatus());
+    res.json({ ...getHeartbeatStatus(), llmReady: isLlmReady() });
   });
 
   // ─── Trigger rules ───
