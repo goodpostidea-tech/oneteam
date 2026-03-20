@@ -8,17 +8,21 @@ import { fetchAllRssFeeds } from './rss-fetcher';
 import { consumeMaterials } from './material-consumer';
 import { getPolicy } from './policy';
 
+import { isLlmReady } from '../config/llm-config';
+
 const logger = getLogger('heartbeat');
 
 interface HeartbeatStatus {
   lastRunAt: string | null;
   lastResult: 'ok' | 'partial' | 'error';
+  llmReady: boolean;
   subsystems: Record<string, { ok: boolean; error?: string }>;
 }
 
 let _status: HeartbeatStatus = {
   lastRunAt: null,
   lastResult: 'ok',
+  llmReady: false,
   subsystems: {},
 };
 
@@ -27,7 +31,8 @@ export function getHeartbeatStatus(): HeartbeatStatus {
 }
 
 export async function runHeartbeatCycle(): Promise<void> {
-  logger.info('Heartbeat cycle started');
+  const llmReady = isLlmReady();
+  logger.info(`Heartbeat cycle started (llmReady=${llmReady})`);
   const subs: Record<string, { ok: boolean; error?: string }> = {};
 
   const run = async (name: string, fn: () => Promise<void>) => {
@@ -35,13 +40,23 @@ export async function runHeartbeatCycle(): Promise<void> {
     catch (error) { logger.error(`Heartbeat: ${name} failed`, error); subs[name] = { ok: false, error: String(error) }; }
   };
 
-  await run('triggers', evaluateTriggers);
-  await run('reactions', processReactionQueue);
-  await run('roundtable', processRoundtableQueue);
-  await run('initiatives', evaluateInitiatives);
+  // LLM-dependent subsystems: skip when not ready
+  if (llmReady) {
+    await run('triggers', evaluateTriggers);
+    await run('reactions', processReactionQueue);
+    await run('roundtable', processRoundtableQueue);
+    await run('initiatives', evaluateInitiatives);
+    await run('materialConsumer', consumeMaterials);
+  } else {
+    for (const name of ['triggers', 'reactions', 'roundtable', 'initiatives', 'materialConsumer']) {
+      subs[name] = { ok: true, error: 'skipped: LLM not configured' };
+    }
+    logger.info('LLM not configured, skipping LLM-dependent subsystems');
+  }
+
+  // Non-LLM subsystems: always run
   await run('promoteInsights', promoteInsights);
   await run('recoverStuck', recoverStuckTasks);
-  await run('materialConsumer', consumeMaterials);
   await run('rssFetch', async () => {
     const interval = await getPolicy<{ minutes: number }>('rss_interval', { minutes: 60 });
     const intervalMs = interval.minutes * 60 * 1000;
@@ -68,6 +83,7 @@ export async function runHeartbeatCycle(): Promise<void> {
   _status = {
     lastRunAt: new Date().toISOString(),
     lastResult: allOk ? 'ok' : anyOk ? 'partial' : 'error',
+    llmReady,
     subsystems: subs,
   };
 

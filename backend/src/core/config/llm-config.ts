@@ -136,6 +136,11 @@ export function deleteLlmConfig(id: string): boolean {
   return true;
 }
 
+export function isLlmReady(): boolean {
+  const cfg = getDefaultLlmConfig();
+  return !!(cfg && cfg.apiKey);
+}
+
 export function setDefaultLlmConfig(id: string): boolean {
   const configs = readConfigs();
   const target = configs.find(c => c.id === id);

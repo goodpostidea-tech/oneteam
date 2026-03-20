@@ -1,6 +1,8 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useState, useEffect } from 'react';
+import ReactDOM from 'react-dom';
 import { agentHue } from './styles';
 import { AgentAvatar } from './AgentAvatar';
+import { useConfirm } from './Modal';
 import { cn } from '../lib/utils';
 
 const PLATFORM_NAMES: Record<string, string> = {
@@ -22,7 +24,7 @@ import type {
 import {
   Plus, Brain, FileText, Users, Cpu, Shield, Zap, ChevronRight,
   Wrench, Send, Twitter, BookOpen, Lightbulb, Link2, StickyNote,
-  Rss, Loader2, Search, Info,
+  Rss, Loader2, Search, Info, Trash2, X, CheckSquare,
 } from 'lucide-react';
 
 interface Props {
@@ -68,6 +70,13 @@ interface Props {
   onLoadMoreRoundtables?: () => void;
   materialSearch?: string;
   onMaterialSearch?: (q: string) => void;
+  onDeleteMission?: (id: number) => void;
+  onDeleteProposal?: (id: number) => void;
+  onBatchDeleteMissions?: (ids: number[]) => void;
+  onBatchDeleteMaterials?: (ids: number[]) => void;
+  onBatchDeleteOutbox?: (items: {kind:string,id:number}[]) => void;
+  onDeleteOutboxItem?: (kind: string, id: number) => void;
+  onDeleteMaterial?: (id: number) => void;
 }
 
 // ─── Shared sub-components ───
@@ -148,25 +157,112 @@ const StatusPill: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
+/** Custom context menu */
+export const ContextMenu: React.FC<{
+  x: number; y: number;
+  items: { label: string; icon?: React.ReactNode; danger?: boolean; onClick: () => void }[];
+  onClose: () => void;
+}> = ({ x, y, items, onClose }) => {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    const keyHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('mousedown', handler);
+    document.addEventListener('keydown', keyHandler);
+    return () => { document.removeEventListener('mousedown', handler); document.removeEventListener('keydown', keyHandler); };
+  }, [onClose]);
+
+  // Adjust position to keep menu within viewport
+  const [pos, setPos] = useState({ x, y });
+  useEffect(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    const nx = rect.right > window.innerWidth ? x - rect.width : x;
+    const ny = rect.bottom > window.innerHeight ? y - rect.height : y;
+    setPos({ x: Math.max(4, nx), y: Math.max(4, ny) });
+  }, [x, y]);
+
+  return ReactDOM.createPortal(
+    <div
+      ref={ref}
+      className="fixed z-[300] min-w-[140px] py-1.5 rounded-xl shadow-lg border border-border-2 animate-fade-up"
+      style={{ left: pos.x, top: pos.y, backgroundColor: 'var(--color-bg-panel)' }}
+    >
+      {items.map((item, i) => (
+        <button
+          key={i}
+          onClick={() => { item.onClick(); onClose(); }}
+          className={cn(
+            'flex items-center gap-2.5 w-full px-3.5 py-2 text-sm font-medium border-none cursor-pointer transition-colors duration-75',
+            item.danger
+              ? 'text-red-600 bg-transparent hover:bg-red-50'
+              : 'text-t1 bg-transparent hover:bg-bg-hover',
+          )}
+        >
+          {item.icon}
+          {item.label}
+        </button>
+      ))}
+    </div>,
+    document.body,
+  );
+};
+
 /** Clickable list row used for all list sections */
 const ListRow = React.forwardRef<HTMLDivElement, {
   isActive: boolean;
   onClick: () => void;
   children: React.ReactNode;
   className?: string;
-}>(({ isActive, onClick, children, className }, ref) => (
-  <div
-    ref={ref}
-    onClick={onClick}
-    className={cn(
-      'flex overflow-hidden rounded-lg cursor-pointer transition-colors duration-100',
-      isActive ? 'bg-bg-hover' : 'bg-transparent hover:bg-bg-hover/60',
-      className,
-    )}
-  >
-    {children}
-  </div>
-));
+  selectMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
+  onContextItems?: () => { label: string; icon?: React.ReactNode; danger?: boolean; onClick: () => void }[];
+}>(({ isActive, onClick, children, className, selectMode, selected, onToggleSelect, onContextItems }, ref) => {
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+
+  return (
+    <>
+      <div
+        ref={ref}
+        onClick={selectMode ? onToggleSelect : onClick}
+        onContextMenu={e => {
+          if (!onContextItems) return;
+          e.preventDefault();
+          setCtxMenu({ x: e.clientX, y: e.clientY });
+        }}
+        className={cn(
+          'group flex overflow-hidden rounded-lg cursor-pointer transition-colors duration-100',
+          isActive && !selectMode ? 'bg-bg-hover' : 'bg-transparent hover:bg-bg-hover/60',
+          selectMode && selected && 'bg-[var(--color-primary-light)]',
+          className,
+        )}
+      >
+        {selectMode && (
+          <div className="flex items-center pl-2.5 flex-shrink-0">
+            <div className={cn(
+              'w-4 h-4 rounded border-2 flex items-center justify-center transition-colors',
+              selected
+                ? 'bg-[var(--color-primary)] border-[var(--color-primary)]'
+                : 'border-[var(--color-border-3)] bg-transparent',
+            )}>
+              {selected && (
+                <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              )}
+            </div>
+          </div>
+        )}
+        {children}
+      </div>
+      {ctxMenu && onContextItems && (
+        <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={onContextItems()} onClose={() => setCtxMenu(null)} />
+      )}
+    </>
+  );
+});
 
 /** Filter pill tab */
 const FilterTab: React.FC<{
@@ -282,14 +378,80 @@ const MaterialQuickInput: React.FC<{
   );
 };
 
+// ─── Select mode toolbar ───
+const SelectToolbar: React.FC<{
+  selectedCount: number;
+  totalCount: number;
+  onSelectAll: () => void;
+  onDelete: () => void;
+  onCancel: () => void;
+}> = ({ selectedCount, totalCount, onSelectAll, onDelete, onCancel }) => (
+  <div className="flex items-center gap-2 px-5 pb-3">
+    <button
+      onClick={onSelectAll}
+      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-bg-hover text-t2 border-none cursor-pointer hover:bg-bg-inset transition-colors"
+    >
+      <CheckSquare size={12} strokeWidth={2} />
+      {selectedCount === totalCount ? '取消全选' : '全选'}
+    </button>
+    <button
+      onClick={onDelete}
+      disabled={selectedCount === 0}
+      className={cn(
+        'flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer transition-colors',
+        selectedCount > 0
+          ? 'bg-red-50 text-red-600 hover:bg-red-100'
+          : 'bg-bg-hover text-t4 cursor-not-allowed',
+      )}
+    >
+      <Trash2 size={12} strokeWidth={2} />
+      删除{selectedCount > 0 ? `(${selectedCount})` : ''}
+    </button>
+    <button
+      onClick={onCancel}
+      className="ml-auto flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-t3 bg-transparent border-none cursor-pointer hover:bg-bg-hover transition-colors"
+    >
+      <X size={12} strokeWidth={2} />
+      取消
+    </button>
+  </div>
+);
+
 // ─── Main component ───
 export const SecondaryPanel: React.FC<Props> = React.memo((p) => {
   const stepsOf = (mId: number) => p.steps.filter(s => s.missionId === mId);
+  const { confirm, dialog: confirmDialog } = useConfirm();
+
+  // ─── Selection mode ───
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  // Exit select mode when nav changes
+  useEffect(() => { setSelectMode(false); setSelected(new Set()); }, [p.nav]);
+
+  const toggleSelect = useCallback((key: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelected(new Set());
+  }, []);
+
+  const enterSelectMode = useCallback(() => {
+    setSelectMode(true);
+    setSelected(new Set());
+  }, []);
 
   if (p.nav === 'theme') return null;
   if (p.nav === 'signal') return null;
 
   return (
+    <>
     <aside
       className="flex flex-col flex-shrink-0 overflow-hidden"
       style={{ width: 300, backgroundColor: 'var(--color-bg-panel)', paddingTop: 48, borderRight: '1px solid var(--color-border-2)' }}
@@ -440,8 +602,9 @@ export const SecondaryPanel: React.FC<Props> = React.memo((p) => {
             />
             {/* Search */}
             <PanelSearch value={p.pipelineSearch} onChange={p.onPipelineSearch} placeholder="搜索任务…" />
-            {/* Status filter */}
-            <div className="flex gap-1.5 px-5 pb-3 flex-wrap">
+            {/* Status filter + manage */}
+            {!selectMode && (
+            <div className="flex items-center gap-1.5 px-5 pb-3 flex-wrap">
               {[
                 { key: 'all', label: '全部' },
                 { key: 'pending', label: '待处理' },
@@ -453,17 +616,67 @@ export const SecondaryPanel: React.FC<Props> = React.memo((p) => {
                   {tab.label}
                 </FilterTab>
               ))}
+              {p.missions.length > 0 && (
+                <button
+                  onClick={enterSelectMode}
+                  className="ml-auto flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-t4 hover:text-red-500 hover:bg-red-50 cursor-pointer border-none bg-transparent transition-colors"
+                  title="管理任务"
+                >
+                  <Trash2 size={12} strokeWidth={2} />
+                </button>
+              )}
             </div>
+            )}
+            {selectMode && p.nav === 'pipeline' && (() => {
+              const deletableMissions = filteredSorted.filter(m => m.status !== 'running' && m.status !== 'approved');
+              const visibleProposals = (p.pipelineStatus === 'all' || p.pipelineStatus === 'pending' || p.pipelineStatus === 'failed') ? pendingProposals : [];
+              const allDeletableKeys = new Set([
+                ...deletableMissions.map(m => `mission-${m.id}`),
+                ...visibleProposals.map(pr => `proposal-${pr.id}`),
+              ]);
+              const selectedDeletable = [...selected].filter(k => allDeletableKeys.has(k));
+              return (
+                <SelectToolbar
+                  selectedCount={selectedDeletable.length}
+                  totalCount={allDeletableKeys.size}
+                  onSelectAll={() => {
+                    if (selectedDeletable.length === allDeletableKeys.size) setSelected(new Set());
+                    else setSelected(new Set(allDeletableKeys));
+                  }}
+                  onDelete={async () => {
+                    const missionIds = selectedDeletable.filter(k => k.startsWith('mission-')).map(k => Number(k.replace('mission-', '')));
+                    const proposalIds = selectedDeletable.filter(k => k.startsWith('proposal-')).map(k => Number(k.replace('proposal-', '')));
+                    if (missionIds.length === 0 && proposalIds.length === 0) return;
+                    const total = missionIds.length + proposalIds.length;
+                    if (await confirm({ title: '删除', description: `确定删除选中的 ${total} 项？此操作不可恢复。`, confirmLabel: '删除' })) {
+                      if (missionIds.length > 0) p.onBatchDeleteMissions?.(missionIds);
+                      for (const pid of proposalIds) await p.onDeleteProposal?.(pid);
+                      exitSelectMode();
+                    }
+                  }}
+                  onCancel={exitSelectMode}
+                />
+              );
+            })()}
             <div className="flex-1 overflow-y-auto px-3 pb-3">
               {/* Pending proposals — only show when filter includes them */}
               {(p.pipelineStatus === 'all' || p.pipelineStatus === 'pending' || p.pipelineStatus === 'failed') && pendingProposals.map(pr => {
                 const isActive = pr.id === p.selectedProposalId;
                 const isPending = pr.status === 'pending';
+                const prSelKey = `proposal-${pr.id}`;
                 return (
                   <ListRow
                     key={`p-${pr.id}`}
                     isActive={isActive}
                     onClick={() => { p.onSelectProposal(pr.id); p.onSelectMission(null); }}
+                    selectMode={selectMode}
+                    selected={selected.has(prSelKey)}
+                    onToggleSelect={() => toggleSelect(prSelKey)}
+                    onContextItems={p.onDeleteProposal ? () => [
+                      { label: '删除', icon: <Trash2 size={14} strokeWidth={2} />, danger: true, onClick: async () => {
+                        if (await confirm({ title: '删除提案', description: `确定删除「${pr.title}」？此操作不可恢复。`, confirmLabel: '删除' })) p.onDeleteProposal!(pr.id);
+                      }},
+                    ] : undefined}
                   >
                     <div className="flex-1 px-3 min-w-0" style={{ height: 64, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                       <div className="flex items-center gap-2 mb-1">
@@ -484,6 +697,8 @@ export const SecondaryPanel: React.FC<Props> = React.memo((p) => {
               {filteredSorted.map(m => {
                 const isActive = m.id === p.selectedMissionId;
                 const summary = missionSummary(m);
+                const selKey = `mission-${m.id}`;
+                const canDelete = m.status !== 'running' && m.status !== 'approved';
                 return (
                   <ListRow
                     key={m.id}
@@ -491,6 +706,14 @@ export const SecondaryPanel: React.FC<Props> = React.memo((p) => {
                     onClick={() => { p.onSelectMission(m.id); p.onSelectProposal(null); }}
                     ref={el => { if (isActive && el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }}
                     className={m.status === 'running' || m.status === 'approved' ? 'animate-row-breathe' : undefined}
+                    selectMode={selectMode && canDelete}
+                    selected={selected.has(selKey)}
+                    onToggleSelect={() => toggleSelect(selKey)}
+                    onContextItems={p.onDeleteMission && canDelete ? () => [
+                      { label: '删除', icon: <Trash2 size={14} strokeWidth={2} />, danger: true, onClick: async () => {
+                        if (await confirm({ title: '删除任务', description: `确定删除「${m.title}」？此操作不可恢复。`, confirmLabel: '删除' })) p.onDeleteMission!(m.id);
+                      }},
+                    ] : undefined}
                   >
                     <div className="flex-1 px-3 min-w-0" style={{ height: 64, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                       <div className="flex items-center gap-2 mb-1">
@@ -599,7 +822,34 @@ export const SecondaryPanel: React.FC<Props> = React.memo((p) => {
                 <span style={{ color: '#946800', fontWeight: 600 }}>{stats.draft} 待审核</span>
                 <span className="text-t4">·</span>
                 <span style={{ color: '#1B7A3D', fontWeight: 600 }}>{stats.exported} 已导出</span>
+                {!selectMode && items.length > 0 && (
+                  <button
+                    onClick={enterSelectMode}
+                    className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs text-t4 hover:text-red-500 hover:bg-red-50 cursor-pointer border-none bg-transparent transition-colors"
+                    title="管理发件箱"
+                  >
+                    <Trash2 size={12} strokeWidth={2} />
+                  </button>
+                )}
               </div>
+            )}
+            {selectMode && p.nav === 'outbox' && (
+              <SelectToolbar
+                selectedCount={selected.size}
+                totalCount={filtered.length}
+                onSelectAll={() => {
+                  if (selected.size === filtered.length) setSelected(new Set());
+                  else setSelected(new Set(filtered.map(i => `${i.kind}-${i.id}`)));
+                }}
+                onDelete={async () => {
+                  const items = [...selected].map(k => { const [kind, ...rest] = k.split('-'); return { kind, id: Number(rest.join('-')) }; });
+                  if (await confirm({ title: '删除内容', description: `确定删除选中的 ${items.length} 项？此操作不可恢复。`, confirmLabel: '删除' })) {
+                    p.onBatchDeleteOutbox?.(items);
+                    exitSelectMode();
+                  }
+                }}
+                onCancel={exitSelectMode}
+              />
             )}
             <div className="flex gap-1.5 px-5 pb-2">
               {[{ key: 'all', label: '全部' }, { key: 'tweet', label: '推文' }, { key: 'article', label: '文章' }].map(t => (
@@ -615,11 +865,20 @@ export const SecondaryPanel: React.FC<Props> = React.memo((p) => {
                 const preview = item.kind === 'article'
                   ? (item.title || item.content.slice(0, 60))
                   : item.content.slice(0, 80);
+                const selKey = `${item.kind}-${item.id}`;
                 return (
                   <ListRow
-                    key={`${item.kind}-${item.id}`}
+                    key={selKey}
                     isActive={isActive}
                     onClick={() => p.onSelectOutbox?.(item.kind, item.id)}
+                    selectMode={selectMode}
+                    selected={selected.has(selKey)}
+                    onToggleSelect={() => toggleSelect(selKey)}
+                    onContextItems={p.onDeleteOutboxItem ? () => [
+                      { label: '删除', icon: <Trash2 size={14} strokeWidth={2} />, danger: true, onClick: async () => {
+                        if (await confirm({ title: '删除内容', description: `确定删除该${item.kind === 'article' ? '文章' : '推文'}？此操作不可恢复。`, confirmLabel: '删除' })) p.onDeleteOutboxItem!(item.kind, item.id);
+                      }},
+                    ] : undefined}
                   >
                     <div className="flex-1 px-3 min-w-0" style={{ height: 64, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                       <div className="flex items-center gap-2 mb-1">
@@ -679,7 +938,34 @@ export const SecondaryPanel: React.FC<Props> = React.memo((p) => {
                 <span>{stats.new} 未读</span>
                 <span className="text-t4">·</span>
                 <span>{stats.used} 已用</span>
+                {!selectMode && items.length > 0 && (
+                  <button
+                    onClick={enterSelectMode}
+                    className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs text-t4 hover:text-red-500 hover:bg-red-50 cursor-pointer border-none bg-transparent transition-colors"
+                    title="管理素材"
+                  >
+                    <Trash2 size={12} strokeWidth={2} />
+                  </button>
+                )}
               </div>
+            )}
+            {selectMode && p.nav === 'materials' && (
+              <SelectToolbar
+                selectedCount={selected.size}
+                totalCount={filtered.length}
+                onSelectAll={() => {
+                  if (selected.size === filtered.length) setSelected(new Set());
+                  else setSelected(new Set(filtered.map(i => `material-${i.id}`)));
+                }}
+                onDelete={async () => {
+                  const ids = [...selected].map(k => Number(k.replace('material-', '')));
+                  if (await confirm({ title: '删除素材', description: `确定删除选中的 ${ids.length} 个素材？此操作不可恢复。`, confirmLabel: '删除' })) {
+                    p.onBatchDeleteMaterials?.(ids);
+                    exitSelectMode();
+                  }
+                }}
+                onCancel={exitSelectMode}
+              />
             )}
             <div className="flex gap-1.5 px-5 pb-2 flex-wrap">
               {[
@@ -698,8 +984,18 @@ export const SecondaryPanel: React.FC<Props> = React.memo((p) => {
                 const isActive = p.selectedMaterialId === item.id;
                 const preview = item.title || item.content.slice(0, 60) || item.url || '无标题';
                 const matStatus = `mat-${item.status}`;
+                const selKey = `material-${item.id}`;
                 return (
-                  <ListRow key={item.id} isActive={isActive} onClick={() => p.onSelectMaterial?.(item.id)}>
+                  <ListRow key={item.id} isActive={isActive} onClick={() => p.onSelectMaterial?.(item.id)}
+                    selectMode={selectMode}
+                    selected={selected.has(selKey)}
+                    onToggleSelect={() => toggleSelect(selKey)}
+                    onContextItems={p.onDeleteMaterial ? () => [
+                      { label: '删除', icon: <Trash2 size={14} strokeWidth={2} />, danger: true, onClick: async () => {
+                        if (await confirm({ title: '删除素材', description: `确定删除「${preview.slice(0, 30)}」？此操作不可恢复。`, confirmLabel: '删除' })) p.onDeleteMaterial!(item.id);
+                      }},
+                    ] : undefined}
+                  >
                     <div className="flex-1 px-3 min-w-0" style={{ height: 64, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                       <div className="flex items-center gap-2 mb-1">
                         <span className="flex-1 text-sm font-medium text-t1 truncate">{preview}</span>
@@ -790,6 +1086,8 @@ export const SecondaryPanel: React.FC<Props> = React.memo((p) => {
         );
       })()}
     </aside>
+    {confirmDialog}
+    </>
   );
 });
 

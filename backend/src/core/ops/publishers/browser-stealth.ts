@@ -1,6 +1,7 @@
 /**
  * Shared stealth helpers for Playwright browser publishers.
- * Removes common automation fingerprints so sites don't flag the browser.
+ * Minimal approach: only patch what automation detection actually checks.
+ * Over-patching makes things worse — sites detect non-native toString().
  */
 
 /** Chrome launch args that disable automation signals */
@@ -9,32 +10,25 @@ export const STEALTH_ARGS = [
   '--disable-infobars',
   '--no-first-run',
   '--no-default-browser-check',
-  '--disable-extensions',
 ];
 
 /**
- * Script injected into every page to mask navigator.webdriver
- * and other automation-detectable properties.
+ * Minimal init script — only delete the webdriver flag and Playwright markers.
+ * We do NOT override navigator.plugins, mimeTypes, etc. because:
+ * - Arrow/function overrides are trivially detected via toString()
+ * - Playwright Chromium already has real plugins in non-headless mode
+ * - Over-patching is the #1 cause of "不安全插件" warnings
  */
 export const STEALTH_INIT_SCRIPT = `
-  // Hide webdriver flag
-  Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+  // 1. Delete webdriver flag via CDP-level approach (undetectable)
+  // The --disable-blink-features=AutomationControlled flag already handles
+  // navigator.webdriver, but we also clean up Playwright's own markers:
+  try { delete window.__playwright; } catch {}
+  try { delete window.__pw_manual; } catch {}
+  try { delete window.__pwInitScripts; } catch {}
 
-  // Mimic normal Chrome — override navigator.plugins to look non-empty
-  Object.defineProperty(navigator, 'plugins', {
-    get: () => [1, 2, 3, 4, 5],
-  });
-
-  // Mimic normal Chrome — override navigator.languages
-  Object.defineProperty(navigator, 'languages', {
-    get: () => ['zh-CN', 'zh', 'en'],
-  });
-
-  // Remove Playwright-injected runtime markers
-  delete window.__playwright;
-  delete window.__pw_manual;
-
-  // Patch chrome.runtime to look like a normal Chrome install
-  if (!window.chrome) { window.chrome = {}; }
-  if (!window.chrome.runtime) { window.chrome.runtime = {}; }
+  // 2. Ensure chrome.runtime exists (Playwright Chromium sometimes lacks it)
+  if (window.chrome && !window.chrome.runtime) {
+    window.chrome.runtime = {};
+  }
 `;

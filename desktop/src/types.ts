@@ -264,6 +264,7 @@ export interface TriggerRule {
 export interface HeartbeatStatus {
   lastRunAt: string | null;
   lastResult: 'ok' | 'partial' | 'error';
+  llmReady: boolean;
   subsystems: Record<string, { ok: boolean; error?: string }>;
 }
 

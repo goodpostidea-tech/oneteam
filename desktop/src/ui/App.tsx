@@ -106,6 +106,8 @@ export const App: React.FC = () => {
   agentIdRef.current = agentId;
   const rtIdRef = useRef(rtId);
   rtIdRef.current = rtId;
+  const navRef = useRef(nav);
+  navRef.current = nav;
   const modalOpenRef = useRef(false);
   modalOpenRef.current = showCreateProposal || showCreateRoundtable || showCreateMemory;
 
@@ -126,44 +128,83 @@ export const App: React.FC = () => {
   const load = useCallback(async (force = false) => {
     if (!force && modalOpenRef.current) return;
     try {
+      const currentNav = navRef.current;
+
+      // ── Always fetch: lightweight core data ──
+      const corePromises: Promise<any>[] = [
+        api.getAgents(),
+        api.getHeartbeatStatus().catch(() => null),
+      ];
+
+      // ── Nav-specific data ──
       const pq = pipelineSearchRef.current || undefined;
       const ps = pipelineStatusRef.current;
       const missionStatus = ps !== 'all' ? ps : undefined;
       const proposalStatus = ps === 'pending' ? 'pending' : ps === 'failed' ? 'rejected' : undefined;
-      const oq = outboxSearchRef.current || undefined;
-      const mq = materialSearchRef.current || undefined;
-      const rq = roundtableSearchRef.current || undefined;
-      const of = outboxFilterRef.current;
-      const ofKind = of !== 'all' ? of : undefined;
 
-      const [missionsRes, c, d, e, f, rtsRes, proposalsRes, ds, as_, hb, lc, obRes, os, pubs, matsRes, matStats, eventsRes, stageRes] = await Promise.all([
-        api.getMissions(1, 30, pq, missionStatus), api.getSteps(), api.getAgents(),
-        api.getRelationships(), api.getMemories(agentIdRef.current),
-        api.getRoundtables(1, 30, rq), api.getProposals(1, 30, pq, proposalStatus),
-        api.getDailyStats(), api.getAgentStats(),
-        api.getHeartbeatStatus().catch(() => null),
-        api.getLlmConfigs().catch(() => null),
-        api.getOutbox(1, 30, oq, ofKind).catch(() => ({ items: [] as OutboxItem[], total: 0, page: 1, pageSize: 30 })),
-        api.getOutboxStats().catch(() => null),
-        api.getPublishers().catch(() => []),
-        api.getMaterials(1, 50, mq).catch(() => ({ items: [] as MaterialItem[], total: 0, page: 1, pageSize: 50 })),
-        api.getMaterialStats().catch(() => null),
-        api.getEvents(1, 50).catch(() => ({ items: [] as EventItem[], total: 0, page: 1, pageSize: 50 })),
-        api.getAgentStage().catch(() => [] as StageAgent[]),
-      ]);
-      setMissions(missionsRes.items); setMissionTotal(missionsRes.total);
-      setSteps(c); setAgents(d);
-      setRels(e); setMemories(f);
-      setRts(rtsRes.items); setRtTotal(rtsRes.total);
-      setProposals(proposalsRes.items);
-      setDailyStats(ds); setAgentStats(as_); setHeartbeat(hb);
-      if (lc) setLlmConfigs(lc);
-      setOutboxItems(obRes.items); setOutboxTotal(obRes.total); setOutboxStats(os); setPublishers(pubs);
-      setMaterials(matsRes.items); setMaterialTotal(matsRes.total); setMaterialPage(1);
-      setMaterialStats(matStats);
-      setEvents(eventsRes.items);
-      setStageData(stageRes);
-      if (rtsRes.items.length > 0 && rtIdRef.current == null) setRtId(rtsRes.items[0].id);
+      const navPromises: Record<string, () => Promise<void>> = {
+        pipeline: async () => {
+          const [missionsRes, stepsRes, proposalsRes, ds, as_] = await Promise.all([
+            api.getMissions(1, 30, pq, missionStatus),
+            api.getSteps(),
+            api.getProposals(1, 30, pq, proposalStatus),
+            api.getDailyStats(),
+            api.getAgentStats(),
+          ]);
+          setMissions(missionsRes.items); setMissionTotal(missionsRes.total);
+          setSteps(stepsRes); setProposals(proposalsRes.items);
+          setDailyStats(ds); setAgentStats(as_);
+        },
+        agents: async () => {
+          const [mems, rels, stageRes] = await Promise.all([
+            api.getMemories(agentIdRef.current),
+            api.getRelationships(),
+            api.getAgentStage().catch(() => [] as StageAgent[]),
+          ]);
+          setMemories(mems); setRels(rels); setStageData(stageRes);
+        },
+        outbox: async () => {
+          const oq = outboxSearchRef.current || undefined;
+          const of = outboxFilterRef.current;
+          const ofKind = of !== 'all' ? of : undefined;
+          const [obRes, os, pubs] = await Promise.all([
+            api.getOutbox(1, 30, oq, ofKind).catch(() => ({ items: [] as OutboxItem[], total: 0, page: 1, pageSize: 30 })),
+            api.getOutboxStats().catch(() => null),
+            api.getPublishers().catch(() => []),
+          ]);
+          setOutboxItems(obRes.items); setOutboxTotal(obRes.total); setOutboxStats(os); setPublishers(pubs);
+        },
+        materials: async () => {
+          const mq = materialSearchRef.current || undefined;
+          const [matsRes, matStats] = await Promise.all([
+            api.getMaterials(1, 50, mq).catch(() => ({ items: [] as MaterialItem[], total: 0, page: 1, pageSize: 50 })),
+            api.getMaterialStats().catch(() => null),
+          ]);
+          setMaterials(matsRes.items); setMaterialTotal(matsRes.total); setMaterialPage(1); setMaterialStats(matStats);
+        },
+        roundtable: async () => {
+          const rq = roundtableSearchRef.current || undefined;
+          const rtsRes = await api.getRoundtables(1, 30, rq);
+          setRts(rtsRes.items); setRtTotal(rtsRes.total);
+          if (rtsRes.items.length > 0 && rtIdRef.current == null) setRtId(rtsRes.items[0].id);
+        },
+        signal: async () => {
+          const eventsRes = await api.getEvents(1, 50).catch(() => ({ items: [] as EventItem[], total: 0, page: 1, pageSize: 50 }));
+          setEvents(eventsRes.items);
+        },
+        settings: async () => {
+          const lc = await api.getLlmConfigs().catch(() => null);
+          if (lc) setLlmConfigs(lc);
+        },
+      };
+
+      // Run core + current nav in parallel
+      const [agentsRes, hb] = await Promise.all([
+        ...corePromises,
+        navPromises[currentNav]?.() ?? Promise.resolve(),
+      ]) as [Agent[], HeartbeatStatus | null, void];
+      setAgents(agentsRes); setHeartbeat(hb);
+
       setError(prev => prev !== null ? null : prev);
     } catch {
       setError('无法连接后端 — 请确认 localhost:4173 正在运行');
@@ -174,7 +215,16 @@ export const App: React.FC = () => {
     try { setLlmConfigs(await api.getLlmConfigs()); } catch { /* ignore */ }
   }, []);
 
-  useEffect(() => { load(); const t = setInterval(load, 5000); return () => clearInterval(t); }, [load]);
+  const anyModalOpen = showCreateProposal || showCreateRoundtable || showCreateMemory;
+
+  useEffect(() => {
+    if (anyModalOpen) return;           // 模态框打开时完全停止轮询
+    load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, [load, anyModalOpen]);
+  // Nav 切换时立即加载对应数据
+  useEffect(() => { load(true); }, [nav]);  // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { loadLlmConfigs(); }, [loadLlmConfigs]);
   useEffect(() => { api.getMemories(agentId).then(setMemories).catch(() => {}); }, [agentId]);
 
@@ -336,6 +386,42 @@ export const App: React.FC = () => {
     finally { setRssRefreshing(false); }
   }, [load]);
 
+  const handleDeleteMission = useCallback(async (id: number) => {
+    try { await api.deleteMission(id); if (selectedMissionId === id) setSelectedMissionId(null); await load(true); }
+    catch { setError('删除任务失败'); }
+  }, [load, selectedMissionId]);
+  const handleDeleteProposal = useCallback(async (id: number) => {
+    try { await api.deleteProposal(id); if (selectedProposalId === id) setSelectedProposalId(null); await load(true); }
+    catch { setError('删除提案失败'); }
+  }, [load, selectedProposalId]);
+  const handleBatchDeleteMissions = useCallback(async (ids: number[]) => {
+    try {
+      if (ids.length === missions.length) { await api.clearMissions(); }
+      else { await api.batchDeleteMissions(ids); }
+      if (selectedMissionId && ids.includes(selectedMissionId)) setSelectedMissionId(null);
+      setSelectedProposalId(null); await load(true);
+    } catch { setError('批量删除任务失败'); }
+  }, [load, missions.length, selectedMissionId]);
+  const handleBatchDeleteMaterials = useCallback(async (ids: number[]) => {
+    try {
+      if (ids.length === materials.length) { await api.clearMaterials(); }
+      else { await api.batchDeleteMaterials(ids); }
+      if (selectedMaterialId && ids.includes(selectedMaterialId)) setSelectedMaterialId(null);
+      await load(true);
+    } catch { setError('批量删除素材失败'); }
+  }, [load, materials.length, selectedMaterialId]);
+  const handleBatchDeleteOutbox = useCallback(async (items: {kind:string,id:number}[]) => {
+    try {
+      if (items.length === outboxItems.length) { await api.clearOutbox(); }
+      else { await api.batchDeleteOutbox(items); }
+      if (selectedOutboxId) {
+        const match = items.find(i => i.id === selectedOutboxId && i.kind === selectedOutboxKind);
+        if (match) { setSelectedOutboxId(null); setSelectedOutboxKind(null); }
+      }
+      await load(true);
+    } catch { setError('批量删除发件箱失败'); }
+  }, [load, outboxItems.length, selectedOutboxId, selectedOutboxKind]);
+
   const handleAddLlmConfig = useCallback(async (data: any) => { await api.addLlmConfig(data); await loadLlmConfigs(); }, [loadLlmConfigs]);
   const handleUpdateLlmConfig = useCallback(async (id: string, data: any) => { await api.updateLlmConfig(id, data); await loadLlmConfigs(); }, [loadLlmConfigs]);
   const handleDeleteLlmConfig = useCallback(async (id: string) => { await api.deleteLlmConfig(id); await loadLlmConfigs(); }, [loadLlmConfigs]);
@@ -343,6 +429,7 @@ export const App: React.FC = () => {
   const handleAgentsChanged = useCallback(() => { load(true); }, [load]);
 
   const pendingProposals = useMemo(() => proposals.filter(p => p.status === 'pending'), [proposals]);
+  const needSetup = useMemo(() => heartbeat !== null && !heartbeat.llmReady, [heartbeat]);
   const handleNav = useCallback((key: NavKey) => { setNav(key); if (key === 'settings') setSettingsTab('model-config'); }, []);
   const handleOpenCreateProposal = useCallback(() => setShowCreateProposal(true), []);
   const handleCloseCreateProposal = useCallback(() => setShowCreateProposal(false), []);
@@ -412,9 +499,18 @@ export const App: React.FC = () => {
           onLoadMoreRoundtables={handleLoadMoreRoundtables}
           materialSearch={materialSearch}
           onMaterialSearch={handleMaterialSearch}
+          onDeleteMission={handleDeleteMission}
+          onDeleteProposal={handleDeleteProposal}
+          onBatchDeleteMissions={handleBatchDeleteMissions}
+          onBatchDeleteMaterials={handleBatchDeleteMaterials}
+          onBatchDeleteOutbox={handleBatchDeleteOutbox}
+          onDeleteOutboxItem={handleDeleteOutboxItem}
+          onDeleteMaterial={handleDeleteMaterial}
         />
         <MainView
           nav={nav}
+          needSetup={needSetup}
+          onNav={handleNav}
           agents={agents} activeAgentId={agentId} relationships={rels} memories={memories}
           missions={missions} steps={steps} selectedMissionId={selectedMissionId} selectedProposalId={selectedProposalId}
           roundtables={rts} activeRoundtableId={rtId}
@@ -422,6 +518,7 @@ export const App: React.FC = () => {
           onApproveProposal={handleApproveProposal}
           onRejectProposal={handleRejectProposal}
           onCancelMission={handleCancelMission}
+          onDeleteMission={handleDeleteMission}
           onRetryStep={handleRetryStep}
           onRerunMission={handleRerunMission}
           onCreateMemory={handleCreateMemory}

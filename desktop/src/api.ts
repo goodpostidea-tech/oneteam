@@ -108,6 +108,16 @@ export const api = {
 
   // ─── RSS Feeds ───
   getRssFeeds:       () => http.get<RssFeedConfig[]>('/api/rss/feeds').then(r => r.data),
+
+  // ─── Data cleanup ───
+  deleteMission:        (id: number) => http.delete(`/api/missions/${id}`).then(r => r.data),
+  deleteProposal:       (id: number) => http.delete(`/api/proposals/${id}`).then(r => r.data),
+  batchDeleteMissions:  (ids: number[]) => http.post('/api/data/missions/batch-delete', { ids }).then(r => r.data),
+  batchDeleteMaterials: (ids: number[]) => http.post('/api/data/materials/batch-delete', { ids }).then(r => r.data),
+  batchDeleteOutbox:    (items: {kind:string,id:number}[]) => http.post('/api/data/outbox/batch-delete', { items }).then(r => r.data),
+  clearMissions:  () => http.delete('/api/data/missions').then(r => r.data),
+  clearMaterials: () => http.delete('/api/data/materials').then(r => r.data),
+  clearOutbox:    () => http.delete('/api/data/outbox').then(r => r.data),
   addRssFeed:        (data: { name: string; url: string }) => http.post<RssFeedConfig>('/api/rss/feeds', data).then(r => r.data),
   updateRssFeed:     (id: string, data: Partial<RssFeedConfig>) => http.put<RssFeedConfig>(`/api/rss/feeds/${id}`, data).then(r => r.data),
   deleteRssFeed:     (id: string) => http.delete(`/api/rss/feeds/${id}`).then(r => r.data),

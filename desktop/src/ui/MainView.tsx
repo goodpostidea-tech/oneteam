@@ -3,7 +3,8 @@ import { marked } from 'marked';
 import { T, agentHue, STAGES, THEME_LIST, type ThemeId } from './styles';
 import { cn } from '../lib/utils';
 import { AgentAvatar } from './AgentAvatar';
-import { Modal, fieldLabel, fieldInput, fieldSelect, btnPrimary, btnSecondary } from './Modal';
+import { Modal, fieldLabel, fieldInput, fieldSelect, btnPrimary, btnSecondary, useConfirm } from './Modal';
+import { ContextMenu } from './SecondaryPanel';
 import { ModelConfigModal } from './SettingsModal';
 import { SettingsPolicyTab } from './SettingsPolicyTab';
 import { SettingsTriggersTab } from './SettingsTriggersTab';
@@ -20,13 +21,16 @@ import {
   Copy, Download, Archive, Send, Twitter, BookOpen, Upload, ImageIcon, Eye, Lightbulb,
   Activity, Bot,
 } from 'lucide-react';
-import { MilkdownEditor } from './MilkdownEditor';
+// Lazy-loaded editor for code splitting — only loaded when user edits outbox items
+const LazyMilkdownEditor = React.lazy(() => import('./MilkdownEditor').then(m => ({ default: m.MilkdownEditor })));
 import { renderMarkdown, renderThemedHtml } from '../lib/markdown';
 import { THEMES } from '../lib/themes';
 import { makeWeChatCompatible } from '../lib/wechatCompat';
 
 interface Props {
   nav: NavKey;
+  needSetup?: boolean;
+  onNav?: (key: NavKey) => void;
   agents: Agent[]; activeAgentId: string; relationships: Relationship[]; memories: Memory[];
   missions: Mission[]; steps: Step[]; selectedMissionId: number | null;
   selectedProposalId: number | null;
@@ -39,6 +43,7 @@ interface Props {
   onApproveProposal: (id: number) => void;
   onRejectProposal: (id: number) => void;
   onCancelMission: (id: number) => void;
+  onDeleteMission?: (id: number) => void;
   onRetryStep: (id: number) => void;
   onRerunMission: (title: string, description?: string) => void;
   onCreateMemory: (content: string, kind: string) => void;
@@ -75,10 +80,11 @@ interface Props {
   stageData?: StageAgent[];
 }
 
-const Card: React.FC<{ children: React.ReactNode; style?: React.CSSProperties; className?: string }> = ({ children, style, className }) => (
+const Card: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({ children, style, className, ...rest }) => (
   <div
     className={cn('card p-6', className)}
     style={style}
+    {...rest}
   >
     {children}
   </div>
@@ -687,11 +693,14 @@ const PipelineView: React.FC<{
   onApprove: (id: number) => void; onReject: (id: number) => void; onCancel: (id: number) => void;
   onRetryStep: (id: number) => void;
   onRerun: (title: string, description?: string) => void;
-}> = ({ missions, steps, selectedId, proposals, selectedProposalId, dailyStats, agentStats, agents, heartbeat, onApprove, onReject, onCancel, onRetryStep, onRerun }) => {
+  onDelete?: (id: number) => void;
+}> = ({ missions, steps, selectedId, proposals, selectedProposalId, dailyStats, agentStats, agents, heartbeat, onApprove, onReject, onCancel, onRetryStep, onRerun, onDelete }) => {
   const [expandedStep, setExpandedStep] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<'log' | 'detail'>('log');
   const [filters, setFilters] = useState<Set<string>>(new Set(['status', 'step']));
   const [actingProposalId, setActingProposalId] = useState<number | null>(null);
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; missionId: number } | null>(null);
+  const { confirm, dialog: confirmDialog } = useConfirm();
   const mission = missions.find(m => m.id === selectedId);
 
   const agentDisplayName = useMemo(() => makeAgentLookup(agents), [agents]);
@@ -1293,7 +1302,12 @@ const PipelineView: React.FC<{
 
   return (
     <div className="flex flex-col gap-3 pt-2 animate-fade-up">
-      <Card className="flex-1 flex flex-col min-h-0 p-0 overflow-hidden">
+      <Card className="flex-1 flex flex-col min-h-0 p-0 overflow-hidden" onContextMenu={(e) => {
+        if (onDelete && !canCancel) {
+          e.preventDefault();
+          setCtxMenu({ x: e.clientX, y: e.clientY, missionId: mission.id });
+        }
+      }}>
         {/* Header */}
         <div className="px-7 pt-6 pb-4">
           <div className="flex items-start gap-3">
@@ -1335,6 +1349,17 @@ const PipelineView: React.FC<{
           <div className="flex-1" />
           {canCancel && <ActionBtn icon={<Ban size={13} strokeWidth={2} />} label="取消" color="var(--color-danger)" onClick={() => onCancel(mission.id)} />}
           {isMissionFailed && <ActionBtn icon={<Play size={13} strokeWidth={2.5} />} label="重新执行" color="var(--color-info)" onClick={() => onRerun(mission.title, linkedProposal?.description || undefined)} variant="fill" />}
+          {onDelete && !canCancel && (
+            <button
+              onClick={async () => {
+                const ok = await confirm({ title: '删除任务', description: `确认删除「${mission.title}」？删除后不可恢复。`, confirmLabel: '删除', danger: true });
+                if (ok) onDelete(mission.id);
+              }}
+              className="flex items-center px-3 py-2 rounded-lg text-sm text-danger font-medium border-none cursor-pointer bg-transparent hover:bg-danger-bg transition-colors"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
         </div>
 
         {/* ═══ Event Log Tab ═══ */}
@@ -1519,6 +1544,17 @@ const PipelineView: React.FC<{
           </div>
         )}
       </Card>
+      {ctxMenu && onDelete && (
+        <ContextMenu
+          x={ctxMenu.x} y={ctxMenu.y}
+          items={[{ label: '删除', icon: <Trash2 size={14} />, danger: true, onClick: async () => {
+            const ok = await confirm({ title: '删除任务', description: `确认删除「${mission.title}」？删除后不可恢复。`, confirmLabel: '删除', danger: true });
+            if (ok) onDelete(ctxMenu.missionId);
+          }}]}
+          onClose={() => setCtxMenu(null)}
+        />
+      )}
+      {confirmDialog}
     </div>
   );
 };
@@ -2012,6 +2048,7 @@ const OutboxDetailView: React.FC<{
   const [showPublishMenu, setShowPublishMenu] = useState(false);
   const [browserStatus, setBrowserStatus] = useState<{ state: string; message?: string } | null>(null);
   const [activeTab, setActiveTab] = useState<string>('original');
+  const { confirm: confirmPublish, dialog: publishConfirmDialog } = useConfirm();
   const [showAllThemes, setShowAllThemes] = useState(false);
 
   useEffect(() => {
@@ -2036,6 +2073,30 @@ const OutboxDetailView: React.FC<{
 
   const handlePublishWithStatus = async (kind: string, id: number, publisherId: string) => {
     const isBrowser = publisherId === 'browser-wechat-mp' || publisherId === 'browser-toutiao';
+    if (isBrowser) {
+      const ok = await confirmPublish({
+        title: '浏览器发布提示',
+        description: (
+          <ul className="text-left text-sm text-t2 space-y-2 mt-2 list-none p-0 m-0">
+            <li className="flex items-start gap-2">
+              <span className="text-primary mt-0.5">•</span>
+              <span>本工具将打开浏览器<strong className="text-t1">自动完成发布</strong>操作</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-warning mt-0.5">•</span>
+              <span>平台可能弹出<strong className="text-t1">"插件安全"</strong>提示，<strong className="text-primary">点击确认即可</strong></span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-success mt-0.5">•</span>
+              <span>这<strong className="text-t1">不影响</strong>内容发布和账号安全</span>
+            </li>
+          </ul>
+        ),
+        confirmLabel: '继续发布',
+        danger: false,
+      });
+      if (!ok) return;
+    }
     let es: EventSource | null = null;
     if (isBrowser) {
       setBrowserStatus({ state: 'launching', message: '正在启动浏览器...' });
@@ -2288,11 +2349,13 @@ const OutboxDetailView: React.FC<{
                 className="w-full px-4 py-3 rounded-xl text-lg font-semibold text-t1 bg-bg-hover border-none outline-none focus:ring-2 focus:ring-[var(--color-primary-muted)]"
               />
             )}
-            <MilkdownEditor
-              value={editContent}
-              onChange={setEditContent}
-              minHeight={item.kind === 'article' ? 300 : 120}
-            />
+            <React.Suspense fallback={<div className="px-4 py-8 text-center text-t3 text-sm">加载编辑器…</div>}>
+              <LazyMilkdownEditor
+                value={editContent}
+                onChange={setEditContent}
+                minHeight={item.kind === 'article' ? 300 : 120}
+              />
+            </React.Suspense>
             <div className="flex gap-3">
               <button
                 onClick={handleSave}
@@ -2334,6 +2397,7 @@ const OutboxDetailView: React.FC<{
           {browserStatus.state === 'error' && (browserStatus.message || '发布失败')}
         </div>
       )}
+      {publishConfirmDialog}
 
       {/* Metadata */}
       <div className="pt-4 border-t border-border-2 text-2xs text-t4 font-mono">
@@ -2605,11 +2669,38 @@ export const MainView: React.FC<Props> = React.memo((p) => {
           <AlertTriangle size={16} strokeWidth={2} />{p.error}
         </div>
       )}
+      {p.needSetup && p.nav !== 'settings' && (
+        <div
+          className="mx-6 mb-2 px-4 py-3.5 rounded-xl flex items-center gap-3"
+          style={{
+            background: 'var(--color-warning-bg)',
+            border: '1px solid color-mix(in srgb, var(--color-warning) 25%, transparent)',
+          }}
+        >
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ background: 'color-mix(in srgb, var(--color-warning) 15%, transparent)' }}
+          >
+            <Cpu size={16} strokeWidth={2} style={{ color: 'var(--color-warning)' }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-semibold text-t1">尚未配置模型</div>
+            <div className="text-xs text-t3 mt-0.5">系统已暂停 LLM 相关任务，请先添加模型配置</div>
+          </div>
+          <button
+            onClick={() => p.onNav?.('settings')}
+            className="px-3.5 py-1.5 rounded-lg text-xs font-semibold border-none cursor-pointer transition-all hover:opacity-80"
+            style={{ backgroundColor: 'var(--color-primary-deep)', color: 'var(--color-bg-panel)' }}
+          >
+            前往配置
+          </button>
+        </div>
+      )}
       <div className="flex-1 overflow-auto px-8 py-6">
         {p.nav === 'theme' && <ThemeView themeId={p.themeId} onSetTheme={p.onSetTheme} />}
         {p.nav === 'agents' && <StageView stageData={p.stageData || []} agents={p.agents} activeId={p.activeAgentId} onSelectAgent={() => {}} rels={p.relationships} memories={p.memories} onCreateMemory={p.onCreateMemory} onDeleteMemory={p.onDeleteMemory} onRenameAgent={p.onRenameAgent} />}
         {p.nav === 'signal' && <SignalFeedView events={p.events || []} agents={p.agents} />}
-        {p.nav === 'pipeline' && <PipelineView missions={p.missions} steps={p.steps} selectedId={p.selectedMissionId} selectedProposalId={p.selectedProposalId} proposals={p.proposals} dailyStats={p.dailyStats} agentStats={p.agentStats} agents={p.agents} heartbeat={p.heartbeat} onApprove={p.onApproveProposal} onReject={p.onRejectProposal} onCancel={p.onCancelMission} onRetryStep={p.onRetryStep} onRerun={p.onRerunMission} />}
+        {p.nav === 'pipeline' && <PipelineView missions={p.missions} steps={p.steps} selectedId={p.selectedMissionId} selectedProposalId={p.selectedProposalId} proposals={p.proposals} dailyStats={p.dailyStats} agentStats={p.agentStats} agents={p.agents} heartbeat={p.heartbeat} onApprove={p.onApproveProposal} onReject={p.onRejectProposal} onCancel={p.onCancelMission} onDelete={p.onDeleteMission} onRetryStep={p.onRetryStep} onRerun={p.onRerunMission} />}
 
         {p.nav === 'materials' && <MaterialDetailView items={p.materials || []} selectedId={p.selectedMaterialId ?? null} onUpdate={p.onUpdateMaterial} onDelete={p.onDeleteMaterial} onCreateProposal={p.onCreateProposalFromMaterial} />}
         {p.nav === 'outbox' && <OutboxDetailView items={p.outboxItems || []} selectedId={p.selectedOutboxId ?? null} selectedKind={p.selectedOutboxKind ?? null} missions={p.missions} publishers={p.publishers} onUpdate={p.onUpdateOutboxItem} onDelete={p.onDeleteOutboxItem} onPublish={p.onPublishOutboxItem} onGoToMission={(id) => { p.onSelectMission?.(id); }} />}
